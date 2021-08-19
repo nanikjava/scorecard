@@ -3,12 +3,12 @@ module github.com/ossf/scorecard/v2
 go 1.16
 
 require (
-	cloud.google.com/go/bigquery v1.20.1
+	cloud.google.com/go/bigquery v1.21.0
 	cloud.google.com/go/pubsub v1.15.0
 	contrib.go.opencensus.io/exporter/stackdriver v0.13.8
 	github.com/bradleyfalzon/ghinstallation v1.1.1
 	github.com/go-git/go-git/v5 v5.4.2
-	github.com/golangci/golangci-lint v1.41.1
+	github.com/golangci/golangci-lint v1.42.0
 	github.com/google/addlicense v0.0.0-20210809195240-d43bb61fdfda
 	github.com/google/go-cmp v0.5.6
 	github.com/google/go-containerregistry v0.6.0
