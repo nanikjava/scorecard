@@ -575,3 +575,13 @@ checks:
       - >-
         Fix the vulnerabilities. The details of each vulnerability can be found
         on <https://osv.dev>.
+  Frozen:
+    risk: High
+    tags: XXX
+    short: XXX
+    description: >-
+      XXXX
+
+    remediation:
+      - >-
+        XXX

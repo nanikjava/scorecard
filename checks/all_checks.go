@@ -21,5 +21,7 @@ import "github.com/ossf/scorecard/v2/checker"
 var AllChecks = checker.CheckNameToFnMap{}
 
 func registerCheck(name string, fn checker.CheckFn) {
-	AllChecks[name] = fn
+	if name == "Frozen" {
+		AllChecks[name] = fn
+	}
 }
