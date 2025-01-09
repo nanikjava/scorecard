@@ -1,7 +1,7 @@
 //go:build tools
 // +build tools
 
-// Copyright 2020 Security Scorecard Authors
+// Copyright 2020 OpenSSF Scorecard Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -23,8 +23,7 @@ import (
 	_ "github.com/google/addlicense"
 
 	_ "github.com/google/ko"
-	_ "github.com/goreleaser/goreleaser"
-	_ "github.com/naveensrinivasan/stunning-tribble"
+	_ "github.com/goreleaser/goreleaser/v2"
 	_ "github.com/onsi/ginkgo/v2/ginkgo"
 	_ "google.golang.org/protobuf/cmd/protoc-gen-go"
 )

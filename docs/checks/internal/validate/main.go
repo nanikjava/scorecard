@@ -1,4 +1,4 @@
-// Copyright 2020 Security Scorecard Authors
+// Copyright 2020 OpenSSF Scorecard Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,8 +17,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/ossf/scorecard/v4/checks"
-	docs "github.com/ossf/scorecard/v4/docs/checks"
+	"github.com/ossf/scorecard/v5/checks"
+	docs "github.com/ossf/scorecard/v5/docs/checks"
 )
 
 var allowedRisks = map[string]bool{"Critical": true, "High": true, "Medium": true, "Low": true}

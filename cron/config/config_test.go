@@ -1,4 +1,4 @@
-// Copyright 2021 Security Scorecard Authors
+// Copyright 2021 OpenSSF Scorecard Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -24,28 +24,35 @@ import (
 )
 
 const (
-	testEnvVar              string = "TEST_ENV_VAR"
-	prodProjectID                  = "openssf"
-	prodBucket                     = "gs://ossf-scorecard-data2"
-	prodTopic                      = "gcppubsub://projects/openssf/topics/scorecard-batch-requests"
-	prodSubscription               = "gcppubsub://projects/openssf/subscriptions/scorecard-batch-worker"
-	prodBigQueryDataset            = "scorecardcron"
-	prodBigQueryTable              = "scorecard-v2"
-	prodCompletionThreshold        = 0.99
-	prodWebhookURL                 = ""
-	prodCIIDataBucket              = "gs://ossf-scorecard-cii-data"
-	prodBlacklistedChecks          = "CI-Tests,Contributors"
-	prodShardSize           int    = 10
-	prodMetricExporter      string = "stackdriver"
+	testEnvVar                  string = "TEST_ENV_VAR"
+	prodProjectID                      = "openssf"
+	prodBucket                         = "gs://ossf-scorecard-data2"
+	prodTopic                          = "gcppubsub://projects/openssf/topics/scorecard-batch-requests"
+	prodSubscription                   = "gcppubsub://projects/openssf/subscriptions/scorecard-batch-worker"
+	prodBigQueryDataset                = "scorecardcron"
+	prodBigQueryTable                  = "scorecard-v2"
+	prodCompletionThreshold            = 0.99
+	prodWebhookURL                     = ""
+	prodCIIDataBucket                  = "gs://ossf-scorecard-cii-data"
+	prodBlacklistedChecks              = "CI-Tests,Contributors,Dependency-Update-Tool,Webhooks"
+	prodShardSize               int    = 10
+	prodMetricExporter          string = "stackdriver"
+	prodMetricStackdriverPrefix string = "scorecard-cron"
 	// Raw results.
-	prodRawBucket         = "gs://ossf-scorecard-rawdata"
-	prodRawBigQueryTable  = "scorecard-rawdata"
-	prodAPIBucketURL      = "gs://ossf-scorecard-cron-results"
-	prodInputBucketURL    = "gs://ossf-scorecard-input-projects"
-	prodInputBucketPrefix = ""
+	prodRawBucket             = "gs://ossf-scorecard-rawdata"
+	prodRawBigQueryTable      = "scorecard-rawdata"
+	prodAPIBucketURL          = "gs://ossf-scorecard-cron-results"
+	prodInputBucketURL        = "gs://ossf-scorecard-input-projects"
+	prodInputBucketPrefix     = ""
+	prodInputBucketPrefixFile = ""
 )
 
 var (
+	prodInputBucketParams = map[string]string{
+		"url":         prodInputBucketURL,
+		"prefix":      prodInputBucketPrefix,
+		"prefix-file": prodInputBucketPrefixFile,
+	}
 	prodScorecardParams = map[string]string{
 		"api-results-bucket-url":     prodAPIBucketURL,
 		"blacklisted-checks":         prodBlacklistedChecks,
@@ -53,10 +60,9 @@ var (
 		"raw-bigquery-table":         prodRawBigQueryTable,
 		"raw-result-data-bucket-url": prodRawBucket,
 	}
-	prodCriticalityParams map[string]string = nil
-	prodAdditionalParams                    = map[string]map[string]string{
-		"scorecard":   prodScorecardParams,
-		"criticality": prodCriticalityParams,
+	prodAdditionalParams = map[string]map[string]string{
+		"input-bucket": prodInputBucketParams,
+		"scorecard":    prodScorecardParams,
 	}
 )
 
@@ -64,7 +70,6 @@ func getByteValueFromFile(filename string) ([]byte, error) {
 	if filename == "" {
 		return nil, nil
 	}
-	//nolint
 	return os.ReadFile(filename)
 }
 
@@ -89,22 +94,22 @@ func TestYAMLParsing(t *testing.T) {
 			name:     "validate",
 			filename: "config.yaml",
 			expectedConfig: config{
-				ProjectID:              prodProjectID,
-				ResultDataBucketURL:    prodBucket,
-				RequestTopicURL:        prodTopic,
-				RequestSubscriptionURL: prodSubscription,
-				BigQueryDataset:        prodBigQueryDataset,
-				BigQueryTable:          prodBigQueryTable,
-				CompletionThreshold:    prodCompletionThreshold,
-				WebhookURL:             prodWebhookURL,
-				ShardSize:              prodShardSize,
-				MetricExporter:         prodMetricExporter,
-				InputBucketURL:         prodInputBucketURL,
-				InputBucketPrefix:      prodInputBucketPrefix,
-				AdditionalParams:       prodAdditionalParams,
+				ProjectID:               prodProjectID,
+				ResultDataBucketURL:     prodBucket,
+				RequestTopicURL:         prodTopic,
+				RequestSubscriptionURL:  prodSubscription,
+				BigQueryDataset:         prodBigQueryDataset,
+				BigQueryTable:           prodBigQueryTable,
+				CompletionThreshold:     prodCompletionThreshold,
+				WebhookURL:              prodWebhookURL,
+				ShardSize:               prodShardSize,
+				MetricExporter:          prodMetricExporter,
+				MetricStackdriverPrefix: prodMetricStackdriverPrefix,
+				InputBucketURL:          prodInputBucketURL,
+				InputBucketPrefix:       prodInputBucketPrefix,
+				AdditionalParams:        prodAdditionalParams,
 			},
 		},
-
 		{
 			name:     "basic",
 			filename: "testdata/basic.yaml",
@@ -189,7 +194,7 @@ func TestGetStringConfigValue(t *testing.T) {
 			envVal:      "",
 			setEnv:      true,
 			hasError:    true,
-			expectedErr: ErrorEmptyConfigValue,
+			expectedErr: ErrEmptyConfigValue,
 		},
 	}
 	for _, testcase := range testcases {
@@ -338,7 +343,7 @@ func TestGetBigQueryDataset(t *testing.T) {
 		os.Unsetenv(bigqueryDataset)
 		dataset, err := GetBigQueryDataset()
 		if err != nil {
-			t.Errorf("failed to get production BQ datset from config: %v", err)
+			t.Errorf("failed to get production BQ dataset from config: %v", err)
 		}
 		if dataset != prodBigQueryDataset {
 			t.Errorf("test failed: expected - %s, got = %s", prodBigQueryDataset, dataset)
@@ -384,6 +389,20 @@ func TestGetMetricExporter(t *testing.T) {
 		}
 		if exporter != prodMetricExporter {
 			t.Errorf("test failed: expected - %s, got = %s", prodMetricExporter, exporter)
+		}
+	})
+}
+
+//nolint:paralleltest // Since os.Setenv is used.
+func TestGetMetricStackdriverPrefix(t *testing.T) {
+	t.Run("GetMetricStackdriverPrefix", func(t *testing.T) {
+		os.Unsetenv(metricStackdriverPrefix)
+		prefix, err := GetMetricStackdriverPrefix()
+		if err != nil {
+			t.Errorf("failed to get production metric stackdriver prefix from config: %v", err)
+		}
+		if prefix != prodMetricStackdriverPrefix {
+			t.Errorf("test failed: expected - %s, got = %s", prodMetricStackdriverPrefix, prefix)
 		}
 	})
 }
@@ -470,6 +489,44 @@ func TestEnvVarName(t *testing.T) {
 			got := envVarName(testcase.mapName, testcase.subKey)
 			if got != testcase.want {
 				t.Errorf("test failed: expected - %s, got = %s", testcase.want, got)
+			}
+		})
+	}
+}
+
+func TestGetAdditionalParams(t *testing.T) {
+	t.Parallel()
+	//nolint:govet
+	tests := []struct {
+		name    string
+		mapName string
+		want    map[string]string
+		wantErr bool
+	}{
+		{
+			name:    "scorecard values",
+			mapName: "scorecard",
+			want:    prodScorecardParams,
+			wantErr: false,
+		},
+		{
+			name:    "nonexistent value",
+			mapName: "this-value-should-never-exist",
+			want:    map[string]string{},
+			wantErr: true,
+		},
+	}
+	for _, testcase := range tests {
+		testcase := testcase
+		t.Run(testcase.name, func(t *testing.T) {
+			t.Parallel()
+			got, err := GetAdditionalParams(testcase.mapName)
+			if testcase.wantErr != (err != nil) {
+				t.Fatalf("unexpected error value for GetAdditionalParams: %v", err)
+			}
+			if !cmp.Equal(got, testcase.want) {
+				diff := cmp.Diff(got, testcase.want)
+				t.Errorf("test failed: expected - %v, got - %v. \n%s", testcase.want, got, diff)
 			}
 		})
 	}

@@ -1,29 +1,30 @@
-# Security Scorecards
+# OpenSSF Scorecard
 
-[![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/ossf/scorecard/badge)](https://api.securityscorecards.dev/projects/github.com/ossf/scorecard)
-[![OpenSSF Best Practices](https://bestpractices.coreinfrastructure.org/projects/5621/badge)](https://bestpractices.coreinfrastructure.org/projects/5621)
+[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/ossf/scorecard/badge)](https://scorecard.dev/viewer/?uri=github.com/ossf/scorecard)
+[![OpenSSF Best Practices](https://www.bestpractices.dev/projects/5621/badge)](https://www.bestpractices.dev/projects/5621)
 ![build](https://github.com/ossf/scorecard/workflows/build/badge.svg?branch=main)
 ![CodeQL](https://github.com/ossf/scorecard/workflows/CodeQL/badge.svg?branch=main)
 [![Go Reference](https://pkg.go.dev/badge/github.com/ossf/scorecard/v4.svg)](https://pkg.go.dev/github.com/ossf/scorecard/v4)
 [![Go Report Card](https://goreportcard.com/badge/github.com/ossf/scorecard/v4)](https://goreportcard.com/report/github.com/ossf/scorecard/v4)
 [![codecov](https://codecov.io/gh/ossf/scorecard/branch/main/graph/badge.svg?token=PMJ6NAN9J3)](https://codecov.io/gh/ossf/scorecard)
-[![Slack](https://slack.babeljs.io/badge.svg)](https://slack.openssf.org/#security_scorecards)
 [![SLSA 3](https://slsa.dev/images/gh-badge-level3.svg)](https://slsa.dev)
+[![Slack](https://img.shields.io/badge/slack-openssf/scorecard-white.svg?logo=slack)](https://slack.openssf.org/#scorecard)
 
 <img align="right" src="artwork/openssf_security_compressed.png" width="200" height="400">
 
 ## Overview
 
--   [What Is Scorecards?](#what-is-scorecards)
--   [Prominent Scorecards Users](#prominent-scorecards-users)
--   [Scorecards' Public Data](#public-data)
+-   [What Is Scorecard?](#what-is-scorecard)
+-   [Prominent Scorecard Users](#prominent-scorecard-users)
+-   [View a Project's Score](#view-a-projects-score)
+-   [Scorecard's Public Data](#public-data)
 
-## Using Scorecards
+## Using Scorecard
 
--   [Scorecards GitHub Action](#scorecards-github-action)
--   [Scorecards REST API](#scorecards-rest-api)
--   [Scorecards Badges](#scorecards-badges)
--   [Scorecards Command Line Interface](#scorecards-command-line-interface)
+-   [Scorecard GitHub Action](#scorecard-github-action)
+-   [Scorecard REST API](#scorecard-rest-api)
+-   [Scorecard Badges](#scorecard-badges)
+-   [Scorecard Command Line Interface](#scorecard-command-line-interface)
     -   [Prerequisites](#prerequisites)
     -   [Installation](#installation)
     -   [Authentication](#authentication)
@@ -31,9 +32,13 @@
 
 ## Checks
 
--   [Default Scorecards Checks](#scorecard-checks)
+-   [Default Scorecard Checks](#scorecard-checks)
 -   [Detailed Check Documentation](docs/checks.md) (Scoring Criteria, Risks, and
     Remediation)
+-   [Beginner's Guide to Scorecard Checks](#beginners-guide-to-scorecard-checks)
+
+## Other Important Recommendations
+-   [Two-factor Authentication (2FA)](#two-factor-authentication-2fa)
 
 ## Scoring
 -   [Aggregate Score](#aggregate-score)
@@ -42,9 +47,9 @@
 
 -   [Report Problems](#report-problems)
 -   [Code of Conduct](CODE_OF_CONDUCT.md)
--   [Contribute to Scorecards ](CONTRIBUTING.md)
+-   [Contribute to Scorecard ](CONTRIBUTING.md)
 -   [Add a New Check](checks/write.md)
--   [Connect with the Scorecards Community](#connect-with-the-scorecards-community)
+-   [Connect with the Scorecard Community](#connect-with-the-scorecard-community)
 -   [Report a Security Issue](SECURITY.md)
 
 ## FAQ
@@ -53,12 +58,12 @@
 
 ## Overview
 
-### What is Scorecards?
-We created Scorecards to help open source maintainers improve their security
+### What is Scorecard?
+We created Scorecard to help open source maintainers improve their security
 best practices and to help open source consumers judge whether their dependencies
 are safe.
 
-Scorecards is an automated tool that assesses a number of important heuristics
+Scorecard is an automated tool that assesses a number of important heuristics
 [("checks")](#scorecard-checks) associated with software security and assigns
 each check a score of 0-10. You can use these scores to understand specific
 areas to improve in order to strengthen the security posture of your project.
@@ -66,7 +71,7 @@ You can also assess the risks that dependencies introduce, and make informed
 decisions about accepting these risks, evaluating alternative solutions, or
 working with the maintainers to make improvements.
 
-The inspiration for Scorecards’ logo:
+The inspiration for Scorecard’s logo:
 ["You passed! All D's ... and an A!"](https://youtu.be/rDMMYT3vkTk)
 
 #### Project Goals
@@ -77,10 +82,40 @@ The inspiration for Scorecards’ logo:
 1.  Use this data to proactively improve the security posture of the critical
     projects the world depends on.
 
-### Prominent Scorecards Users
+1. Act as a measurement tool for existing policies
 
-Scorecards has been run on thousands of projects to monitor and track security
-metrics. Prominent projects that use Scorecards include:
+    If OSS consumers require certain behaviors from their dependencies,
+    Scorecard can be used to measure those. With the V5 release, we see
+    Structured Results as a way of doing this if there is a supported analysis.
+    Instead of relying on an aggregate score of X/10, or a Maintained score of
+    Y/10, an OSS consumer may want to ensure the repo they're depending on
+    isn't archived (which is covered by the `archived` probe). The OpenSSF
+    takes this approach with its own Security Baseline for projects.
+
+#### Project Non-Goals
+
+1.  To be a definitive report or requirement that all projects should follow.
+
+    Scorecard is not intended to be a one-size-fits-all solution. Every step of
+    making our results is opinionated: what checks get included or excluded,
+    the importance of each check, and how scores are calculated. The checks
+    themselves are heuristics; there are false positives and false negatives.
+
+    Whether it’s due to applicability, or feasibility, or a matter of opinion,
+    what's included or excluded from Scorecard results leads to a lot of
+    discussion. It’s impossible to create a Scorecard that satisfies everyone
+    because different audiences will care about different subsets of behavior.
+
+    Aggregate scores in particular tells you nothing about what individual
+    behaviors a repository is or is not doing. Many check scores are aggregated
+    into a single score, and there’s multiple ways of arriving at the same
+    score. These scores change as we add new heuristics or refine the existing
+    ones.
+
+### Prominent Scorecard Users
+
+Scorecard has been run on thousands of projects to monitor and track security
+metrics. Prominent projects that use Scorecard include:
 
 -   [Tensorflow](https://github.com/tensorflow/tensorflow)
 -   [Angular](https://github.com/angular/angular)
@@ -88,9 +123,20 @@ metrics. Prominent projects that use Scorecards include:
 -   [sos.dev](https://sos.dev)
 -   [deps.dev](https://deps.dev)
 
+### View a Project's Score
+
+To see scores for projects regularly scanned by Scorecard, navigate to the [webviewer](https://scorecard.dev/viewer/?uri=). You can also replace the placeholder text (platform, user/org, and repository name) in the following template link to generate a custom Scorecard link for a repo:
+`https://scorecard.dev/viewer/?uri=<github_or_gitlab>.com/<user_name_or_org>/<repository_name>`
+
+For example:
+ - [https://scorecard.dev/viewer/?uri=github.com/ossf/scorecard](https://scorecard.dev/viewer/?uri=github.com/ossf/scorecard)
+ - [https://scorecard.dev/viewer/?uri=gitlab.com/fdroid/fdroidclient](https://scorecard.dev/viewer/?uri=gitlab.com/fdroid/fdroidclient)
+
+To view scores for projects not included in the webviewer, use the [Scorecard CLI](#scorecard-command-line-interface).
+
 ### Public Data
 
-We run a weekly Scorecards scan of the 1 million most critical open source
+We run a weekly Scorecard scan of the 1 million most critical open source
 projects judged by their direct dependencies and publish the results in a
 [BigQuery public dataset](https://cloud.google.com/bigquery/public-data).
 
@@ -98,7 +144,7 @@ This data is available in the public BigQuery dataset
 `openssf:scorecardcron.scorecard-v2`. The latest results are available in the
 BigQuery view `openssf:scorecardcron.scorecard-v2_latest`.
 
-You can query the data using [BigQuery Explorer](http://console.cloud.google.com/bigquery) by navigating to Add Data > Pin a Project > Enter Project Name > 'openssf'.
+You can query the data using [BigQuery Explorer](http://console.cloud.google.com/bigquery) by navigating to Add Data > Star a project by name > 'openssf'.
 For example, you may be interested in how a project's score has changed over time:
 
 ```sql
@@ -128,49 +174,51 @@ send a Pull Request with others. Currently, this list is derived from **projects
 hosted on GitHub ONLY**. We do plan to expand them in near future to account for
 projects hosted on other source control systems.
 
-## Using Scorecards
+## Using Scorecard
 
-### Scorecards GitHub Action
+### Scorecard GitHub Action
 
-The easiest way to use Scorecards on GitHub projects you own is with the
-[Scorecards GitHub Action](https://github.com/ossf/scorecard-action). The Action
+The easiest way to use Scorecard on GitHub projects you own is with the
+[Scorecard GitHub Action](https://github.com/ossf/scorecard-action). The Action
 runs on any repository change and issues alerts that maintainers can view in the
-repository’s Security tab. For more information, see the Scorecards GitHub
+repository’s Security tab. For more information, see the Scorecard GitHub
 Action
 [installation instructions](https://github.com/ossf/scorecard-action#installation).
 
-### Scorecards REST API
+### Scorecard REST API
 
-To query pre-calculated scores of OSS projects, use the [REST API](https://api.securityscorecards.dev).
+To query pre-calculated scores of OSS projects, use the [REST API](https://api.scorecard.dev).
 
 To enable your project to be available on the REST API, set
 [`publish_results: true`](https://github.com/ossf/scorecard-action/blob/dd5015aaf9688596b0e6d11e7f24fff566aa366b/action.yaml#L35)
-in the Scorecards GitHub Action setting.
+in the Scorecard GitHub Action setting.
 
-### Scorecards Badges
+Data provided by the REST API is licensed under the [CDLA Permissive 2.0](https://cdla.dev/permissive-2-0).
+
+### Scorecard Badges
 
 Enabling [`publish_results: true`](https://github.com/ossf/scorecard-action/blob/dd5015aaf9688596b0e6d11e7f24fff566aa366b/action.yaml#L35)
-in Scorecards GitHub Actions also allows maintainers to display a Scorecard badge on their repository to show off their
-hard work. This badge also auto-updates for every change made to the repository.
+in Scorecard GitHub Actions also allows maintainers to display a Scorecard badge on their repository to show off their
+hard work. This badge also auto-updates for every change made to the repository. See more details on [this OSSF blogpost](https://openssf.org/blog/2022/09/08/show-off-your-security-score-announcing-scorecards-badges/).
+
 To include a badge on your project's repository, simply add the following markdown to your README:
 
 ```
-[![OpenSSF
-Scorecard](https://api.securityscorecards.dev/projects/github.com/{owner}/{repo}/badge)](https://api.securityscorecards.dev/projects/github.com/{owner}/{repo})
+[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/{owner}/{repo}/badge)](https://scorecard.dev/viewer/?uri=github.com/{owner}/{repo})
 ```
 
-### Scorecards Command Line Interface
+### Scorecard Command Line Interface
 
-To run a Scorecards scan on projects you do not own, use the command line
+To run a Scorecard scan on projects you do not own, use the command line
 interface installation option.
 
 #### Prerequisites
 
-Platforms: Currently, Scorecards supports OSX and Linux platforms. If you are
+Platforms: Currently, Scorecard supports OSX and Linux platforms. If you are
 using a Windows OS you may experience issues. Contributions towards supporting
 Windows are welcome.
 
-Language: You must have GoLang installed to run Scorecards
+Language: You must have GoLang installed to run Scorecard
 (https://golang.org/doc/install)
 
 #### Installation
@@ -183,7 +231,7 @@ Language: You must have GoLang installed to run Scorecards
 docker pull gcr.io/openssf/scorecard:stable
 ```
 
-To use a specific scorecards version (e.g., v3.2.1), run:
+To use a specific scorecard version (e.g., v3.2.1), run:
 
 ```shell
 docker pull gcr.io/openssf/scorecard:v3.2.1
@@ -191,7 +239,7 @@ docker pull gcr.io/openssf/scorecard:v3.2.1
 
 ##### Standalone
 
-To install Scorecards as a standalone:
+To install Scorecard as a standalone:
 
 Visit our latest [release page](https://github.com/ossf/scorecard/releases/latest) and
 download the correct zip file for your operating system.
@@ -200,7 +248,7 @@ Add the binary to your `GOPATH/bin` directory (use `go env GOPATH` to identify y
 
 ###### Verifying SLSA provenance for downloaded releases
 
-We generate [SLSA3 signatures](slsa.dev) using the OpenSSF's [slsa-framework/slsa-github-generator](https://github.com/slsa-framework/slsa-github-generator) during the release process. To verify a release binary:
+We generate [SLSA3 signatures](https://slsa.dev) using the OpenSSF's [slsa-framework/slsa-github-generator](https://github.com/slsa-framework/slsa-github-generator) during the release process. To verify a release binary:
 1. Install the verification tool from [slsa-framework/slsa-verifier#installation](https://github.com/slsa-framework/slsa-verifier#installation).
 2. Download the signature file `attestation.intoto.jsonl` from the [GitHub releases page](https://github.com/GoogleContainerTools/jib/releases/latest).
 3. Run the verifier:
@@ -225,7 +273,7 @@ requests before running Scorecard. There are two ways to authenticate your
 requests: either create a GitHub personal access token, or create a GitHub App
 Installation.
 
--   [Create a GitHub personal access token](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/creating-a-personal-access-token).
+-   [Create a classic GitHub personal access token](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/creating-a-personal-access-token#creating-a-personal-access-token-classic).
     When creating the personal access token, we suggest you choose the
     `public_repo` scope. Set the token in an environment variable called
     `GITHUB_AUTH_TOKEN`, `GITHUB_TOKEN`, `GH_AUTH_TOKEN` or `GH_TOKEN` using the
@@ -263,7 +311,7 @@ These variables can be obtained from the GitHub
 
 ##### Using repository URL
 
-Scorecards can run using just one argument, the URL of the target repo:
+Scorecard can run using just one argument, the URL of the target repo:
 
 ```shell
 $ scorecard --repo=github.com/ossf-tests/scorecard-check-branch-protection-e2e
@@ -360,7 +408,7 @@ The `GITHUB_AUTH_TOKEN` has to be set to a valid [token](#Authentication)
 docker run -e GITHUB_AUTH_TOKEN=token gcr.io/openssf/scorecard:stable --show-details --repo=https://github.com/ossf/scorecard
 ```
 
-To use a specific scorecards version (e.g., v3.2.1), run:
+To use a specific scorecard version (e.g., v3.2.1), run:
 
 ```shell
 docker run -e GITHUB_AUTH_TOKEN=token gcr.io/openssf/scorecard:v3.2.1 --show-details --repo=https://github.com/ossf/scorecard
@@ -395,16 +443,65 @@ RESULTS
 |         |                        |                                | review dismissal enabled on    |                                                                           |
 |         |                        |                                | branch 'main' Info: Owner      |                                                                           |
 |         |                        |                                | review required on branch      |                                                                           |
-|         |                        |                                | 'main' Info: 'admininistrator' |                                                                           |
+|         |                        |                                | 'main' Info: 'administrator'   |                                                                           |
 |         |                        |                                | PRs need reviews before being  |                                                                           |
 |         |                        |                                | merged on branch 'main'        |                                                                           |
 |---------|------------------------|--------------------------------|--------------------------------|---------------------------------------------------------------------------|
 ```
 
+##### Showing Maintainers Annotations
+
+**Maintainer Annotations** let maintainers add context to display alongside Scorecard check results. Annotations can provide users additional information when Scorecard has an incomplete assessment of a project's security practices. To see the maintainers annotations for each check, use the `--show-annotations` option.
+
+For more information on available annotations or how to make annotations, see [the configuration doc](config/README.md).
+
+##### Using a GitLab Repository
+
+To run Scorecard on a GitLab repository, you must create a [GitLab Access Token](https://gitlab.com/-/profile/personal_access_tokens) with the following permissions:
+
+- `read_api`
+- `read_user`
+- `read_repository`
+
+You can run Scorecard on a GitLab repository by setting the `GITLAB_AUTH_TOKEN` environment variable:
+
+```bash
+export GITLAB_AUTH_TOKEN=glpat-xxxx
+
+scorecard --repo gitlab.com/<org>/<project>/<subproject>
+```
+
+For an example of using Scorecard in GitLab CI/CD, see [here](https://gitlab.com/ossf-test/scorecard-pipeline-example).
+
+###### Self Hosted Editions
+While we focus on GitLab.com support, Scorecard also works with self-hosted GitLab installations.
+If your platform is hosted at a subdomain (e.g. `gitlab.foo.com`), Scorecard should work out of the box.
+If your platform is hosted at some slug (e.g. `foo.com/bar/`), you will need to set the `GL_HOST` environment variable.
+
+```bash
+export GITLAB_AUTH_TOKEN=glpat-xxxx
+export GL_HOST=foo.com/bar
+scorecard --repo foo.com/bar/<org>/<project>
+```
+
+##### Using GitHub Enterprise Server (GHES) based Repository
+
+To use a GitHub Enterprise host `github.corp.com`, use the `GH_HOST` environment variable.
+
+```shell
+# Set the GitHub Enterprise host without https prefix or slash with relevant authentication token
+export GH_HOST=github.corp.com
+export GITHUB_AUTH_TOKEN=token
+
+scorecard --repo=github.corp.com/org/repo
+# OR without github host url
+scorecard --repo=org/repo
+```
+
 ##### Using a Package manager
 
-For projects in the `--npm`, `--pypi`, or `--rubygems` ecosystems, you have the
-option to run Scorecards using a package manager. Provide the package name to
+For projects in the `--npm`, `--pypi`, `--rubygems`, or `--nuget` ecosystems, you have the
+option to run Scorecard using a package manager. Provide the package name to
 run the checks on the corresponding GitHub source code.
 
 For example, `--npm=angular`.
@@ -430,38 +527,70 @@ These may be specified with the `--format` flag. For example, `--format=json`.
 
 The following checks are all run against the target project by default:
 
-Name        | Description                               | Risk Level | Token Required | Note
------------ | ----------------------------------------- | ---------- | --------------- | -----------------
-[Binary-Artifacts](docs/checks.md#binary-artifacts)             | Is the project free of checked-in binaries?                                                                                                                                                                                                                                                                                  | High               | PAT, GITHUB_TOKEN   |
-[Branch-Protection](docs/checks.md#branch-protection)           | Does the project use [Branch Protection](https://docs.github.com/en/free-pro-team@latest/github/administering-a-repository/about-protected-branches) ?                                                                                                                                                                       | High | PAT (`repo` or `repo> public_repo`), GITHUB_TOKEN    | certain settings are only supported with a maintainer PAT
-[CI-Tests](docs/checks.md#ci-tests)                             | Does the project run tests in CI, e.g. [GitHub Actions](https://docs.github.com/en/free-pro-team@latest/actions), [Prow](https://github.com/kubernetes/test-infra/tree/master/prow)?                                                                                                                                         | Low | PAT, GITHUB_TOKEN   |
-[CII-Best-Practices](docs/checks.md#cii-best-practices)         | Does the project have an [OpenSSF (formerly CII) Best Practices Badge](https://bestpractices.coreinfrastructure.org/en)?                                                                                                                                                                                                                         | Low  | PAT, GITHUB_TOKEN   |
-[Code-Review](docs/checks.md#code-review)                       | Does the project require code review before code is merged?                                                                                                                                                                                                                                                                  | High | PAT, GITHUB_TOKEN   |
-[Contributors](docs/checks.md#contributors)                     | Does the project have contributors from at least two different organizations?                                                                                                                                                                                                                                                | Low | PAT, GITHUB_TOKEN   |
-[Dangerous-Workflow](docs/checks.md#dangerous-workflow)         | Does the project avoid dangerous coding patterns in GitHub Action workflows?                                                                                                                                                                                                                                                 | Critical | PAT, GITHUB_TOKEN   |
-[Dependency-Update-Tool](docs/checks.md#dependency-update-tool) | Does the project use tools to help update its dependencies?                                                                                                                                                                                                                                                                  | High | PAT, GITHUB_TOKEN   |
-[Fuzzing](docs/checks.md#fuzzing)                               | Does the project use fuzzing tools, e.g. [OSS-Fuzz](https://github.com/google/oss-fuzz)?                                                                                                                                                                                                                                     | Medium | PAT, GITHUB_TOKEN   |
-[License](docs/checks.md#license)                               | Does the project declare a license?                                                                                                                                                                                                                                                                                          | Low | PAT, GITHUB_TOKEN   |
-[Maintained](docs/checks.md#maintained)                         | Is the project at least 90 days old, and maintained?                                                                                                                                                                                                                                                                                                   | High | PAT, GITHUB_TOKEN   |
-[Pinned-Dependencies](docs/checks.md#pinned-dependencies)       | Does the project declare and pin [dependencies](https://docs.github.com/en/free-pro-team@latest/github/visualizing-repository-data-with-graphs/about-the-dependency-graph#supported-package-ecosystems)?                                                                                                                     | Medium | PAT, GITHUB_TOKEN   |
-[Packaging](docs/checks.md#packaging)                           | Does the project build and publish official packages from CI/CD, e.g. [GitHub Publishing](https://docs.github.com/en/free-pro-team@latest/actions/guides/about-packaging-with-github-actions#workflows-for-publishing-packages) ?                                                                                            | Medium | PAT, GITHUB_TOKEN   |
-[SAST](docs/checks.md#sast)                                     | Does the project use static code analysis tools, e.g. [CodeQL](https://docs.github.com/en/free-pro-team@latest/github/finding-security-vulnerabilities-and-errors-in-your-code/enabling-code-scanning-for-a-repository#enabling-code-scanning-using-actions), [LGTM (deprecated)](https://lgtm.com), [SonarCloud](https://sonarcloud.io)? | Medium | PAT, GITHUB_TOKEN   |
-[Security-Policy](docs/checks.md#security-policy)               | Does the project contain a [security policy](https://docs.github.com/en/free-pro-team@latest/github/managing-security-vulnerabilities/adding-a-security-policy-to-your-repository)?                                                                                                                                          | Medium | PAT, GITHUB_TOKEN   |
-[Signed-Releases](docs/checks.md#signed-releases)               | Does the project cryptographically [sign releases](https://wiki.debian.org/Creating%20signed%20GitHub%20releases)?                                                                                                                                                                                                           | High | PAT, GITHUB_TOKEN   |
-[Token-Permissions](docs/checks.md#token-permissions)           | Does the project declare GitHub workflow tokens as [read only](https://docs.github.com/en/actions/reference/authentication-in-a-workflow)?                                                                                                                                                                                   | High | PAT, GITHUB_TOKEN   |
-[Vulnerabilities](docs/checks.md#vulnerabilities)               | Does the project have unfixed vulnerabilities? Uses the [OSV service](https://osv.dev).                                                                                                                                                                                                                                      | High | PAT, GITHUB_TOKEN   |
-[Webhooks](docs/checks.md#webhooks)               | Does the webhook defined in the repository have a token configured to authenticate the origins of requests?                                                                                                                                                                                                                                      | High | maintainer PAT (`admin: repo_hook` or `admin> read:repo_hook` [doc](https://docs.github.com/en/rest/webhooks/repo-config#get-a-webhook-configuration-for-a-repository)  | EXPERIMENTAL
+Name        | Description                               | Risk Level | Token Required  | GitLab Support | Note
+----------- | ----------------------------------------- | ---------- | --------------- | -------------- | --- |
+[Binary-Artifacts](docs/checks.md#binary-artifacts)             | Is the project free of checked-in binaries?     | High               | PAT, GITHUB_TOKEN   | Supported |
+[Branch-Protection](docs/checks.md#branch-protection)           | Does the project use [Branch Protection](https://docs.github.com/en/free-pro-team@latest/github/administering-a-repository/about-protected-branches) ?                                                                                                                                                                       | High | PAT (`repo` or `repo> public_repo`), GITHUB_TOKEN    | Supported (see notes) | certain settings are only supported with a maintainer PAT
+[CI-Tests](docs/checks.md#ci-tests)                             | Does the project run tests in CI, e.g. [GitHub Actions](https://docs.github.com/en/free-pro-team@latest/actions), [Prow](https://github.com/kubernetes/test-infra/tree/master/prow)?                                                                                                                                         | Low | PAT, GITHUB_TOKEN   | Supported
+[CII-Best-Practices](docs/checks.md#cii-best-practices)         | Has the project earned an [OpenSSF (formerly CII) Best Practices Badge](https://www.bestpractices.dev) at the passing, silver, or gold level?                                                                                                                                                                 | Low  | PAT, GITHUB_TOKEN   | Validating |
+[Code-Review](docs/checks.md#code-review)                       | Does the project practice code review before code is merged?                                                                                                                                                                                                                                                                 | High | PAT, GITHUB_TOKEN   | Validating |
+[Contributors](docs/checks.md#contributors)                     | Does the project have contributors from at least two different organizations?                                                                                                                                                                                                                                                | Low | PAT, GITHUB_TOKEN   | Validating |
+[Dangerous-Workflow](docs/checks.md#dangerous-workflow)         | Does the project avoid dangerous coding patterns in GitHub Action workflows?                                                                                                                                                                                                                                                 | Critical | PAT, GITHUB_TOKEN   | Unsupported |
+[Dependency-Update-Tool](docs/checks.md#dependency-update-tool) | Does the project use tools to help update its dependencies?                                                                                                                                                                                                                                                                  | High | PAT, GITHUB_TOKEN   | Unsupported |
+[Fuzzing](docs/checks.md#fuzzing)                               | Does the project use fuzzing tools, e.g. [OSS-Fuzz](https://github.com/google/oss-fuzz), [QuickCheck](https://hackage.haskell.org/package/QuickCheck) or [fast-check](https://fast-check.dev/)?                                                                                                                                                                                                                                     | Medium | PAT, GITHUB_TOKEN   | Validating
+[License](docs/checks.md#license)                               | Does the project declare a license?                                                                                                                                                                                                                                                                                          | Low | PAT, GITHUB_TOKEN   | Validating |
+[Maintained](docs/checks.md#maintained)                         | Is the project at least 90 days old, and maintained?                                                                                                                                                                                                                                                                                                   | High | PAT, GITHUB_TOKEN   | Validating |
+[Pinned-Dependencies](docs/checks.md#pinned-dependencies)       | Does the project declare and pin [dependencies](https://docs.github.com/en/free-pro-team@latest/github/visualizing-repository-data-with-graphs/about-the-dependency-graph#supported-package-ecosystems)?                                                                                                                     | Medium | PAT, GITHUB_TOKEN   | Validating |
+[Packaging](docs/checks.md#packaging)                           | Does the project build and publish official packages from CI/CD, e.g. [GitHub Publishing](https://docs.github.com/en/free-pro-team@latest/actions/guides/about-packaging-with-github-actions#workflows-for-publishing-packages) ?                                                                                            | Medium | PAT, GITHUB_TOKEN   | Validating |
+[SAST](docs/checks.md#sast)                                     | Does the project use static code analysis tools, e.g. [CodeQL](https://docs.github.com/en/free-pro-team@latest/github/finding-security-vulnerabilities-and-errors-in-your-code/enabling-code-scanning-for-a-repository#enabling-code-scanning-using-actions), [LGTM (deprecated)](https://lgtm.com), [SonarCloud](https://sonarcloud.io)? | Medium | PAT, GITHUB_TOKEN   | Unsupported |
+[Security-Policy](docs/checks.md#security-policy)               | Does the project contain a [security policy](https://docs.github.com/en/free-pro-team@latest/github/managing-security-vulnerabilities/adding-a-security-policy-to-your-repository)?                                                                                                                                          | Medium | PAT, GITHUB_TOKEN   | Validating |
+[Signed-Releases](docs/checks.md#signed-releases)               | Does the project cryptographically [sign releases](https://wiki.debian.org/Creating%20signed%20GitHub%20releases)?                                                                                                                                                                                                           | High | PAT, GITHUB_TOKEN   | Validating |
+[Token-Permissions](docs/checks.md#token-permissions)           | Does the project declare GitHub workflow tokens as [read only](https://docs.github.com/en/actions/reference/authentication-in-a-workflow)?                                                                                                                                                                                   | High | PAT, GITHUB_TOKEN   | Unsupported |
+[Vulnerabilities](docs/checks.md#vulnerabilities)               | Does the project have unfixed vulnerabilities? Uses the [OSV service](https://osv.dev).                                                                                                                                                                                                                                      | High | PAT, GITHUB_TOKEN   | Validating |
+[Webhooks](docs/checks.md#webhooks)                             | Does the webhook defined in the repository have a token configured to authenticate the origins of requests?                                                                                                                                                                                                                                      | Critical | maintainer PAT (`admin: repo_hook` or `admin> read:repo_hook` [doc](https://docs.github.com/en/rest/webhooks/repo-config#get-a-webhook-configuration-for-a-repository)  |  | EXPERIMENTAL
 
 ### Detailed Checks Documentation
 
 To see detailed information about each check, its scoring criteria, and
 remediation steps, check out the [checks documentation page](docs/checks.md).
 
+### Beginner's Guide to Scorecard Checks
+
+For a guide to the checks you should use when getting started, see the [beginner's guide to scorecard checks](docs/beginner-checks.md).
+
+## Other Important Recommendations
+
+### Two-factor Authentication (2FA)
+
+[Two-factor Authentication (2FA)](https://docs.github.com/en/authentication/securing-your-account-with-two-factor-authentication-2fa/about-two-factor-authentication) adds an extra layer of security when logging into websites or apps. 2FA protects your account if your password is compromised by requiring a second form of authentication, such as codes sent via SMS or authentication app, or touching a physical security key.
+
+We strongly recommend that you enable 2FA on any important accounts where it is available. 2FA is not a Scorecard check because GitHub and GitLab do not make that data about user accounts public. Arguably, this data should always remain private, since accounts without 2FA are so vulnerable to attack.
+
+Though it is not an official check, we urge all project maintainers to enable 2FA to protect their projects from compromise.
+
+#### Enabling 2FA
+
+##### For users
+
+Follow the steps described at [Configuring two-factor authentication](https://docs.github.com/en/authentication/securing-your-account-with-two-factor-authentication-2fa/configuring-two-factor-authentication)
+
+If possible, use either:
+
+- physical security key (preferred), such as Titan or Yubikey
+- recovery codes, stored in an access protected and encrypted vault
+
+As a last option, use SMS. Beware: 2FA using SMS is vulnerable to [SIM swap attack](https://en.wikipedia.org/wiki/SIM_swap_scam).
+
+##### For an organization
+
+1. [Prepare to require 2FA in your organization](https://docs.github.com/en/organizations/keeping-your-organization-secure/managing-two-factor-authentication-for-your-organization/preparing-to-require-two-factor-authentication-in-your-organization)
+2. [Require 2FA in your organization](https://docs.github.com/en/organizations/keeping-your-organization-secure/managing-two-factor-authentication-for-your-organization/requiring-two-factor-authentication-in-your-organization)
+
 ## Scoring
 
 ### Aggregate Score
 Each individual check returns a score of 0 to 10, with 10 representing the best
-possible score. Scorecards also produces an aggregate score, which is a
+possible score. Scorecard also produces an aggregate score, which is a
 weight-based average of the individual checks weighted by risk.
 
 *   “Critical” risk checks are weighted at 10
@@ -469,7 +598,7 @@ weight-based average of the individual checks weighted by risk.
 *   “Medium” risk checks are weighted at 5
 *   “Low” risk checks are weighted at 2.5
 
-See the [list of current Scorecards checks](#scorecard-checks) for each check's
+See the [list of current Scorecard checks](#scorecard-checks) for each check's
 risk level.
 
 ## Contribute
@@ -477,11 +606,11 @@ risk level.
 ### Report Problems
 
 If you have what looks like a bug, please use the
-[Github issue tracking system.](https://github.com/ossf/scorecard/issues) Before
+[GitHub issue tracking system.](https://github.com/ossf/scorecard/issues) Before
 you file an issue, please search existing issues to see if your issue is already
 covered.
 
-### Contribute to Scorecards
+### Contribute to Scorecard
 
 Before contributing, please follow our [Code of Conduct](CODE_OF_CONDUCT.md).
 
@@ -492,9 +621,9 @@ contribute to the project.
 
 If you'd like to add a check, please see guidance [here](checks/write.md).
 
-### Connect with the Scorecards Community
+### Connect with the Scorecard Community
 
-If you want to get involved in the Scorecards community or have ideas you'd like
+If you want to get involved in the Scorecard community or have ideas you'd like
 to chat about, we discuss this project in the
 [OSSF Best Practices Working Group](https://github.com/ossf/wg-best-practices-os-developers)
 meetings.
@@ -503,22 +632,33 @@ Artifact                      | Link
 ----------------------------- | ----
 Scorecard Dev Forum           | [ossf-scorecard-dev@](https://groups.google.com/g/ossf-scorecard-dev)
 Scorecard Announcements Forum | [ossf-scorecard-announce@](https://groups.google.com/g/ossf-scorecard-announce)
-Community Meeting VC          | [Link to z o o m meeting](https://zoom.us/j/98835923979)
-Community Meeting Calendar    | Biweekly Thursdays, 1:00pm-2:00pm PST <br>[Calendar](https://calendar.google.com/calendar?cid=czYzdm9lZmhwNWk5cGZsdGI1cTY3bmdwZXNAZ3JvdXAuY2FsZW5kYXIuZ29vZ2xlLmNvbQ)
-Meeting Notes                 | [Notes](https://docs.google.com/document/d/1dB2U7_qZpNW96vtuoG7ShmgKXzIg6R5XT5Tc-0yz6kE/edit#heading=h.4k8ml0qkh7tl)
-Slack Channel                 | [#security_scorecards](https://slack.openssf.org/#security_scorecards)
+Community Meeting VC          | [Link to z o o m meeting](https://zoom-lfx.platform.linuxfoundation.org/meeting/95007214146?password=250040c3-80c0-48c4-80c1-07a373116d54)
+Community Meeting Calendar    | **_APAC-friendly_** Biweekly on Thursdays at 1:00-2:00 PM Pacific ([OSSF Public Calendar](https://calendar.google.com/calendar/u/0/embed?height=600&wkst=1&bgcolor=%238E24AA&showTitle=1&mode=WEEK&showCalendars=0&showTabs=1&showPrint=0&title=OpenSSF+Community+Calendar&src=czYzdm9lZmhwNWk5cGZsdGI1cTY3bmdwZXNAZ3JvdXAuY2FsZW5kYXIuZ29vZ2xlLmNvbQ&color=%238E24AA)) <br>Video Call: [LFX Zoom](https://zoom-lfx.platform.linuxfoundation.org/meeting/95007214146?password=250040c3-80c0-48c4-80c1-07a373116d54) <br> **_EMEA-friendly_** Every 4 Mondays at 7:00-8:00 AM Pacific ([OSSF Public Calendar](https://calendar.google.com/calendar/u/0/embed?height=600&wkst=1&bgcolor=%238E24AA&showTitle=1&mode=WEEK&showCalendars=0&showTabs=1&showPrint=0&title=OpenSSF+Community+Calendar&src=czYzdm9lZmhwNWk5cGZsdGI1cTY3bmdwZXNAZ3JvdXAuY2FsZW5kYXIuZ29vZ2xlLmNvbQ&color=%238E24AA)) <br> Video Call: [LFX Zoom](https://zoom-lfx.platform.linuxfoundation.org/meeting/93377638314?password=d53af562-d908-4100-8ae1-52686756cc5d)
+Meeting Notes                 | [Notes](https://docs.google.com/document/d/1b6d3CVJLsl7YnTE7ZaZQHdkdYIvuOQ8rzAmvVdypOWM/edit?usp=sharing)
+Slack Channel                 | [#scorecard](https://slack.openssf.org/#scorecard)
 
-&nbsp;                                                           | Facilitators      | Company | Profile
----------------------------------------------------------------- | ----------------- | ------- | -------
-<img width="30px" src="https://github.com/azeemshaikh38.png">    | Azeem Shaikh      | Google  | [azeemshaikh38](https://github.com/azeemshaikh38)
-<img width="30px" src="https://github.com/laurentsimon.png">     | Laurent Simon     | Google  | [laurentsimon](https://github.com/laurentsimon)
-<img width="30px" src="https://github.com/naveensrinivasan.png"> | Naveen Srinivasan | Endor Labs | [naveensrinivasan](https://github.com/naveensrinivasan)
-<img width="30px" src="https://github.com/chrismcgehee.png">     | Chris McGehee     | Datto   | [chrismcgehee](https://github.com/chrismcgehee)
-<img width="30px" src="https://github.com/justaugustus.png">     | Stephen Augustus  | Cisco   | [justaugustus](https://github.com/justaugustus)
+__Maintainers__ are listed in the [CODEOWNERS file](.github/CODEOWNERS).
 
 ### Report a Security Issue
 
 To report a security issue, please follow instructions [here](SECURITY.md).
+
+### Join the Scorecard Project Meeting
+
+#### Zoom
+
+**_APAC-friendly_** Biweekly on Thursdays at 1:00-2:00 PM Pacific ([OSSF Public Calendar](https://calendar.google.com/calendar/u/0/embed?height=600&wkst=1&bgcolor=%238E24AA&showTitle=1&mode=WEEK&showCalendars=0&showTabs=1&showPrint=0&title=OpenSSF+Community+Calendar&src=czYzdm9lZmhwNWk5cGZsdGI1cTY3bmdwZXNAZ3JvdXAuY2FsZW5kYXIuZ29vZ2xlLmNvbQ&color=%238E24AA)) 
+
+Video Call: [LFX z o o m](https://zoom-lfx.platform.linuxfoundation.org/meeting/95007214146?password=250040c3-80c0-48c4-80c1-07a373116d54)   
+
+**_EMEA-friendly_** Every 4 Mondays at 7:00-8:00 AM Pacific ([OSSF Public Calendar](https://calendar.google.com/calendar/u/0/embed?height=600&wkst=1&bgcolor=%238E24AA&showTitle=1&mode=WEEK&showCalendars=0&showTabs=1&showPrint=0&title=OpenSSF+Community+Calendar&src=czYzdm9lZmhwNWk5cGZsdGI1cTY3bmdwZXNAZ3JvdXAuY2FsZW5kYXIuZ29vZ2xlLmNvbQ&color=%238E24AA))
+
+Video Call: [LFX z o o m](https://zoom-lfx.platform.linuxfoundation.org/meeting/93377638314?password=d53af562-d908-4100-8ae1-52686756cc5d)   
+
+#### Agenda
+
+You can see the [agenda and meeting notes here](https://docs.google.com/document/d/1b6d3CVJLsl7YnTE7ZaZQHdkdYIvuOQ8rzAmvVdypOWM/edit?usp=sharing).
+
 
 ## Stargazers over time
 
@@ -529,4 +669,4 @@ To report a security issue, please follow instructions [here](SECURITY.md).
 
 ### FAQ
 
-See the [FAQ](docs/faq.md) for answers to Frequently Asked Questions about Scorecards.
+See the [FAQ](docs/faq.md) for answers to Frequently Asked Questions about Scorecard.

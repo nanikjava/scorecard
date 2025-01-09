@@ -1,4 +1,4 @@
-// Copyright 2021 Security Scorecard Authors
+// Copyright 2021 OpenSSF Scorecard Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -34,7 +34,7 @@ const (
 )
 
 // BadgeLevel corresponds to CII-Best-Practices badge levels.
-// https://bestpractices.coreinfrastructure.org/en
+// https://www.bestpractices.dev/en
 type BadgeLevel uint
 
 // String returns a string value for BadgeLevel enum.

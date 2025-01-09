@@ -1,4 +1,4 @@
-// Copyright 2021 Security Scorecard Authors
+// Copyright 2021 OpenSSF Scorecard Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,48 +17,55 @@ package evaluation
 import (
 	"testing"
 
-	"github.com/ossf/scorecard/v4/checker"
-	"github.com/ossf/scorecard/v4/clients"
-	sce "github.com/ossf/scorecard/v4/errors"
-	scut "github.com/ossf/scorecard/v4/utests"
+	"github.com/ossf/scorecard/v5/checker"
+	sce "github.com/ossf/scorecard/v5/errors"
+	"github.com/ossf/scorecard/v5/finding"
+	"github.com/ossf/scorecard/v5/probes/codeApproved"
+	scut "github.com/ossf/scorecard/v5/utests"
 )
 
 func TestCodeReview(t *testing.T) {
 	t.Parallel()
-
-	//nolint:govet // ignore since this is a test.
 	tests := []struct {
 		name     string
+		findings []finding.Finding
 		expected scut.TestReturn
-		rawData  *checker.CodeReviewData
 	}{
 		{
-			name: "NullRawData",
+			name: "no findings is an error",
 			expected: scut.TestReturn{
 				Error: sce.ErrScorecardInternal,
 				Score: checker.InconclusiveResultScore,
 			},
-			rawData: nil,
+			findings: nil,
 		},
 		{
-			name: "NoCommits",
+			name: "no changesets",
 			expected: scut.TestReturn{
 				Score: checker.InconclusiveResultScore,
 			},
-			rawData: &checker.CodeReviewData{},
+			findings: []finding.Finding{
+				{
+					Probe:   codeApproved.Probe,
+					Outcome: finding.OutcomeNotApplicable,
+					Message: "no changesets detected",
+				},
+			},
 		},
 		{
-			name: "NoReviews",
+			name: "unreviewed changes result in minimum score",
 			expected: scut.TestReturn{
-				Score: checker.MinResultScore,
+				Score:         checker.MinResultScore,
+				NumberOfDebug: 0, // TODO
 			},
-			rawData: &checker.CodeReviewData{
-				DefaultBranchChangesets: []checker.Changeset{
-					{
-						Commits: []clients.Commit{{SHA: "1"}},
-					},
-					{
-						Commits: []clients.Commit{{SHA: "1"}},
+			findings: []finding.Finding{
+				{
+					Probe:   codeApproved.Probe,
+					Outcome: finding.OutcomeFalse,
+					Message: "Found 0/2 approved changesets",
+					Values: map[string]string{
+						codeApproved.NumApprovedKey: "0",
+						codeApproved.NumTotalKey:    "2",
 					},
 				},
 			},
@@ -68,38 +75,14 @@ func TestCodeReview(t *testing.T) {
 			expected: scut.TestReturn{
 				Score: checker.MaxResultScore,
 			},
-			rawData: &checker.CodeReviewData{
-				DefaultBranchChangesets: []checker.Changeset{
-					{
-						ReviewPlatform: checker.ReviewPlatformGitHub,
-						RevisionID:     "1",
-						Commits: []clients.Commit{
-							{
-								SHA: "1",
-								AssociatedMergeRequest: clients.PullRequest{
-									Reviews: []clients.Review{
-										{
-											State: "APPROVED",
-										},
-									},
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-		{
-			name: "all changesets reviewed outside github",
-			expected: scut.TestReturn{
-				Score: checker.MaxResultScore,
-			},
-			rawData: &checker.CodeReviewData{
-				DefaultBranchChangesets: []checker.Changeset{
-					{
-						ReviewPlatform: checker.ReviewPlatformGerrit,
-						RevisionID:     "1",
-						Commits:        []clients.Commit{{SHA: "1"}},
+			findings: []finding.Finding{
+				{
+					Probe:   codeApproved.Probe,
+					Outcome: finding.OutcomeTrue,
+					Message: "All changesets approved",
+					Values: map[string]string{
+						codeApproved.NumApprovedKey: "2",
+						codeApproved.NumTotalKey:    "2",
 					},
 				},
 			},
@@ -110,12 +93,9 @@ func TestCodeReview(t *testing.T) {
 		tt := tt // Re-initializing variable so it is not changed while executing the closure below
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-
 			dl := &scut.TestDetailLogger{}
-			res := CodeReview(tt.name, dl, tt.rawData)
-			if !scut.ValidateTestReturn(t, tt.name, &tt.expected, &res, dl) {
-				t.Error()
-			}
+			res := CodeReview(tt.name, tt.findings, dl)
+			scut.ValidateTestReturn(t, tt.name, &tt.expected, &res, dl)
 		})
 	}
 }

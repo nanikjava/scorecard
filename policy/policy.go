@@ -1,4 +1,4 @@
-// Copyright 2021 Security Scorecard Authors
+// Copyright 2021 OpenSSF Scorecard Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -23,9 +23,9 @@ import (
 
 	"gopkg.in/yaml.v3"
 
-	"github.com/ossf/scorecard/v4/checker"
-	"github.com/ossf/scorecard/v4/checks"
-	sce "github.com/ossf/scorecard/v4/errors"
+	"github.com/ossf/scorecard/v5/checker"
+	"github.com/ossf/scorecard/v5/checks"
+	sce "github.com/ossf/scorecard/v5/errors"
 )
 
 var (
@@ -200,7 +200,7 @@ func GetEnabled(
 
 func checksHavePolicies(sp *ScorecardPolicy, enabledChecks checker.CheckNameToFnMap) bool {
 	for checkName := range enabledChecks {
-		_, exists := sp.Policies[checkName]
+		_, exists := sp.GetPolicies()[checkName]
 		if !exists {
 			log.Printf("check %s has no policy declared", checkName)
 			return false

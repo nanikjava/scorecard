@@ -1,4 +1,4 @@
-// Copyright 2020 Security Scorecard Authors
+// Copyright 2020 OpenSSF Scorecard Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,15 +16,19 @@
 package checker
 
 import (
+	"errors"
 	"fmt"
 	"math"
+	"strings"
+
+	"github.com/ossf/scorecard/v5/config"
+	sce "github.com/ossf/scorecard/v5/errors"
+	"github.com/ossf/scorecard/v5/finding"
 )
 
 type (
 	// DetailType is the type of details.
 	DetailType int
-	// FileType is the type of a file.
-	FileType int
 )
 
 const (
@@ -43,25 +47,15 @@ const (
 const (
 	// DetailInfo is info-level log.
 	DetailInfo DetailType = iota
-	// DetailWarn is warn log.
+	// DetailWarn is warned log.
 	DetailWarn
 	// DetailDebug is debug log.
 	DetailDebug
 )
 
-const (
-	// FileTypeNone is a default, not defined.
-	// FileTypeNone must be `0`.
-	FileTypeNone FileType = iota
-	// FileTypeSource is for source code files.
-	FileTypeSource
-	// FileTypeBinary is for binary files.
-	FileTypeBinary
-	// FileTypeText is for text files.
-	FileTypeText
-	// FileTypeURL for URLs.
-	FileTypeURL
-)
+// errSuccessTotal indicates a runtime error because number of success cases should
+// be smaller than the total cases to create a proportional score.
+var errSuccessTotal = errors.New("unexpected number of success is higher than total")
 
 // CheckResult captures result from a check run.
 //
@@ -70,21 +64,12 @@ type CheckResult struct {
 	Name    string
 	Version int
 	Error   error
-	Details []CheckDetail
 	Score   int
 	Reason  string
-}
+	Details []CheckDetail
 
-// Remediation represents a remediation.
-type Remediation struct {
-	// Code snippet for humans.
-	Snippet string
-	// Diff for machines.
-	Diff string
-	// Help text for humans.
-	HelpText string
-	// Help text in markdown format for humans.
-	HelpMarkdown string
+	// Findings from the check's probes.
+	Findings []finding.Finding
 }
 
 // CheckDetail contains information for each detail.
@@ -98,13 +83,25 @@ type CheckDetail struct {
 //
 //nolint:govet
 type LogMessage struct {
-	Text        string       // A short string explaining why the detail was recorded/logged.
-	Path        string       // Fullpath to the file.
-	Type        FileType     // Type of file.
-	Offset      uint         // Offset in the file of Path (line for source/text files).
-	EndOffset   uint         // End of offset in the file, e.g. if the command spans multiple lines.
-	Snippet     string       // Snippet of code
-	Remediation *Remediation // Remediation information, if any.
+	// Structured results.
+	Finding *finding.Finding
+
+	// Non-structured results.
+	Text        string               // A short string explaining why the detail was recorded/logged.
+	Path        string               // Fullpath to the file.
+	Type        finding.FileType     // Type of file.
+	Offset      uint                 // Offset in the file of Path (line for source/text files).
+	EndOffset   uint                 // End of offset in the file, e.g. if the command spans multiple lines.
+	Snippet     string               // Snippet of code
+	Remediation *finding.Remediation // Remediation information, if any.
+}
+
+// ProportionalScoreWeighted is a structure that contains
+// the fields to calculate weighted proportional scores.
+type ProportionalScoreWeighted struct {
+	Success int
+	Total   int
+	Weight  int
 }
 
 // CreateProportionalScore creates a proportional score.
@@ -113,7 +110,41 @@ func CreateProportionalScore(success, total int) int {
 		return 0
 	}
 
-	return int(math.Min(float64(MaxResultScore*success/total), float64(MaxResultScore)))
+	return min(MaxResultScore*success/total, MaxResultScore)
+}
+
+// CreateProportionalScoreWeighted creates the proportional score
+// between multiple successes over the total, but some proportions
+// are worth more.
+func CreateProportionalScoreWeighted(scores ...ProportionalScoreWeighted) (int, error) {
+	var ws, wt int
+	allWeightsZero := true
+	noScoreGroups := true
+	for _, score := range scores {
+		if score.Success > score.Total {
+			return InconclusiveResultScore, fmt.Errorf("%w: %d, %d", errSuccessTotal, score.Success, score.Total)
+		}
+		if score.Total == 0 {
+			continue // Group with 0 total, does not count for score
+		}
+		noScoreGroups = false
+		if score.Weight != 0 {
+			allWeightsZero = false
+		}
+		// Group with zero weight, adds nothing to the score
+
+		ws += score.Success * score.Weight
+		wt += score.Total * score.Weight
+	}
+	if noScoreGroups {
+		return InconclusiveResultScore, nil
+	}
+	// If has score groups but no groups matter to the score, result in max score
+	if allWeightsZero {
+		return MaxResultScore, nil
+	}
+
+	return min(MaxResultScore*ws/wt, MaxResultScore), nil
 }
 
 // AggregateScores adds up all scores
@@ -146,13 +177,18 @@ func NormalizeReason(reason string, score int) string {
 }
 
 // CreateResultWithScore is used when
-// the check runs without runtime errors and we want to assign a
-// specific score.
+// the check runs without runtime errors, and we want to assign a
+// specific score. The score must be between [MinResultScore] and [MaxResultScore].
+// Callers who want [InconclusiveResultScore] must use [CreateInconclusiveResult] instead.
+//
+// Passing an invalid score results in a runtime error result as if created by [CreateRuntimeErrorResult].
 func CreateResultWithScore(name, reason string, score int) CheckResult {
+	if score < MinResultScore || score > MaxResultScore {
+		err := sce.CreateInternal(sce.ErrScorecardInternal, fmt.Sprintf("invalid score (%d), please report this", score))
+		return CreateRuntimeErrorResult(name, err)
+	}
 	return CheckResult{
-		Name: name,
-		// Old structure.
-		// New structure.
+		Name:    name,
 		Version: 2,
 		Error:   nil,
 		Score:   score,
@@ -163,19 +199,12 @@ func CreateResultWithScore(name, reason string, score int) CheckResult {
 // CreateProportionalScoreResult is used when
 // the check runs without runtime errors and we assign a
 // proportional score. This may be used if a check contains
-// multiple tests and we want to assign a score proportional
-// the the number of tests that succeeded.
+// multiple tests, and we want to assign a score proportional
+// the number of tests that succeeded.
 func CreateProportionalScoreResult(name, reason string, b, t int) CheckResult {
 	score := CreateProportionalScore(b, t)
-	return CheckResult{
-		Name: name,
-		// Old structure.
-		// New structure.
-		Version: 2,
-		Error:   nil,
-		Score:   score,
-		Reason:  NormalizeReason(reason, score),
-	}
+	reason = NormalizeReason(reason, score)
+	return CreateResultWithScore(name, reason, score)
 }
 
 // CreateMaxScoreResult is used when
@@ -197,9 +226,7 @@ func CreateMinScoreResult(name, reason string) CheckResult {
 // have enough evidence to set a score.
 func CreateInconclusiveResult(name, reason string) CheckResult {
 	return CheckResult{
-		Name: name,
-		// Old structure.
-		// New structure.
+		Name:    name,
 		Version: 2,
 		Score:   InconclusiveResultScore,
 		Reason:  reason,
@@ -209,12 +236,53 @@ func CreateInconclusiveResult(name, reason string) CheckResult {
 // CreateRuntimeErrorResult is used when the check fails to run because of a runtime error.
 func CreateRuntimeErrorResult(name string, e error) CheckResult {
 	return CheckResult{
-		Name: name,
-		// Old structure.
-		// New structure.
+		Name:    name,
 		Version: 2,
 		Error:   e,
 		Score:   InconclusiveResultScore,
-		Reason:  e.Error(), // Note: message already accessible by caller thru `Error`.
+		Reason:  e.Error(), // Note: message already accessible by caller through `Error`.
 	}
+}
+
+// LogFinding logs the given finding at the given level.
+func LogFinding(dl DetailLogger, f *finding.Finding, level DetailType) {
+	lm := LogMessage{Finding: f}
+	switch level {
+	case DetailDebug:
+		dl.Debug(&lm)
+	case DetailInfo:
+		dl.Info(&lm)
+	case DetailWarn:
+		dl.Warn(&lm)
+	}
+}
+
+// Annotations returns the applicable annotations for a given configuration.
+// Any annotations on checks with a maximum score are assumed to be out of
+// date and skipped.
+func (check *CheckResult) Annotations(c config.Config) []string {
+	// If check has a maximum score, then there it doesn't make sense anymore to reason the check
+	// This may happen if the check score was once low but then the problem was fixed on Scorecard side
+	// or on the maintainers side
+	if check.Score == MaxResultScore {
+		return nil
+	}
+
+	// Collect all annotation reasons for this check
+	var reasons []string
+
+	// For all annotations
+	for _, annotation := range c.Annotations {
+		for _, checkName := range annotation.Checks {
+			// If check is in this annotation
+			if strings.EqualFold(checkName, check.Name) {
+				// Get all the reasons for this annotation
+				for _, reasonGroup := range annotation.Reasons {
+					reasons = append(reasons, reasonGroup.Reason.Doc())
+				}
+			}
+		}
+	}
+
+	return reasons
 }

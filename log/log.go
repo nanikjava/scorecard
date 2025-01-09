@@ -1,4 +1,4 @@
-// Copyright 2022 Security Scorecard Authors
+// Copyright 2022 OpenSSF Scorecard Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -33,6 +33,23 @@ type Logger struct {
 // TODO(log): Consider adopting production config from zap.
 func NewLogger(logLevel Level) *Logger {
 	logrusLog := logrus.New()
+
+	// Set log level from logrus
+	logrusLevel := parseLogrusLevel(logLevel)
+	logrusLog.SetLevel(logrusLevel)
+
+	return NewLogrusLogger(logrusLog)
+}
+
+// NewCronLogger creates an instance of *Logger.
+func NewCronLogger(logLevel Level) *Logger {
+	logrusLog := logrus.New()
+
+	// for stackdriver, see: https://cloud.google.com/logging/docs/structured-logging#special-payload-fields
+	logrusLog.SetFormatter(&logrus.JSONFormatter{FieldMap: logrus.FieldMap{
+		logrus.FieldKeyLevel: "severity",
+		logrus.FieldKeyMsg:   "message",
+	}})
 
 	// Set log level from logrus
 	logrusLevel := parseLogrusLevel(logLevel)

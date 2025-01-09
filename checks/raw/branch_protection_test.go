@@ -1,4 +1,4 @@
-// Copyright 2022 Security Scorecard Authors
+// Copyright 2022 OpenSSF Scorecard Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -21,9 +21,9 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/google/go-cmp/cmp"
 
-	"github.com/ossf/scorecard/v4/checker"
-	"github.com/ossf/scorecard/v4/clients"
-	mockrepo "github.com/ossf/scorecard/v4/clients/mockclients"
+	"github.com/ossf/scorecard/v5/checker"
+	"github.com/ossf/scorecard/v5/clients"
+	mockrepo "github.com/ossf/scorecard/v5/clients/mockclients"
 )
 
 var (
@@ -33,7 +33,7 @@ var (
 	mainBranchName    = "main"
 )
 
-// nolint: govet
+//nolint:govet
 type branchArg struct {
 	err           error
 	name          string
@@ -63,10 +63,11 @@ func (ba branchesArg) getBranch(b string) (*clients.BranchRef, error) {
 
 func TestBranchProtection(t *testing.T) {
 	t.Parallel()
-	//nolint: govet
+	//nolint:govet
 	tests := []struct {
 		name        string
 		branches    branchesArg
+		repoFiles   []string
 		releases    []clients.Release
 		releasesErr error
 		want        checker.BranchProtectionsData
@@ -80,6 +81,9 @@ func TestBranchProtection(t *testing.T) {
 					err:  errBPTest,
 				},
 			},
+			want: checker.BranchProtectionsData{
+				CodeownersFiles: []string{},
+			},
 		},
 		{
 			name: "null-default-branch-only",
@@ -89,6 +93,9 @@ func TestBranchProtection(t *testing.T) {
 					defaultBranch: true,
 					branchRef:     nil,
 				},
+			},
+			want: checker.BranchProtectionsData{
+				CodeownersFiles: []string{},
 			},
 		},
 		{
@@ -108,6 +115,7 @@ func TestBranchProtection(t *testing.T) {
 						Name: &defaultBranchName,
 					},
 				},
+				CodeownersFiles: []string{},
 			},
 		},
 		{
@@ -117,6 +125,9 @@ func TestBranchProtection(t *testing.T) {
 		},
 		{
 			name: "no-releases",
+			want: checker.BranchProtectionsData{
+				CodeownersFiles: []string{},
+			},
 		},
 		{
 			name: "empty-targetcommitish",
@@ -155,6 +166,9 @@ func TestBranchProtection(t *testing.T) {
 					branchRef: nil,
 				},
 			},
+			want: checker.BranchProtectionsData{
+				CodeownersFiles: []string{},
+			},
 		},
 		{
 			name: "add-release-branch",
@@ -177,6 +191,7 @@ func TestBranchProtection(t *testing.T) {
 						Name: &releaseBranchName,
 					},
 				},
+				CodeownersFiles: []string{},
 			},
 		},
 		{
@@ -200,6 +215,7 @@ func TestBranchProtection(t *testing.T) {
 						Name: &mainBranchName,
 					},
 				},
+				CodeownersFiles: []string{},
 			},
 		},
 		{
@@ -233,6 +249,7 @@ func TestBranchProtection(t *testing.T) {
 						Name: &releaseBranchName,
 					},
 				},
+				CodeownersFiles: []string{},
 			},
 		},
 		// TODO: Add tests for commitSHA regex matching.
@@ -255,8 +272,12 @@ func TestBranchProtection(t *testing.T) {
 				DoAndReturn(func() ([]clients.Release, error) {
 					return tt.releases, tt.releasesErr
 				})
+			mockRepoClient.EXPECT().ListFiles(gomock.Any()).AnyTimes().Return(tt.repoFiles, nil)
 
-			rawData, err := BranchProtection(mockRepoClient)
+			c := &checker.CheckRequest{
+				RepoClient: mockRepoClient,
+			}
+			rawData, err := BranchProtection(c)
 			if !errors.Is(err, tt.wantErr) {
 				t.Errorf("failed. expected: %v, got: %v", tt.wantErr, err)
 				t.Fail()

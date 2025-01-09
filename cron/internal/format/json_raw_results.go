@@ -1,4 +1,4 @@
-// Copyright 2022 Security Scorecard Authors
+// Copyright 2022 OpenSSF Scorecard Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,9 +19,9 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/ossf/scorecard/v4/checker"
-	sce "github.com/ossf/scorecard/v4/errors"
-	"github.com/ossf/scorecard/v4/pkg"
+	"github.com/ossf/scorecard/v5/checker"
+	sce "github.com/ossf/scorecard/v5/errors"
+	"github.com/ossf/scorecard/v5/pkg/scorecard"
 )
 
 // Flat JSON structure to hold raw results.
@@ -144,7 +144,7 @@ func addCodeReviewRawResults(r *jsonScorecardRawResult, cr *checker.CodeReviewDa
 }
 
 //nolint:unparam
-func addVulnerbilitiesRawResults(r *jsonScorecardRawResult, vd *checker.VulnerabilitiesData) error {
+func addVulnerabilitiesRawResults(r *jsonScorecardRawResult, vd *checker.VulnerabilitiesData) error {
 	r.Results.DatabaseVulnerabilities = []jsonDatabaseVulnerability{}
 	for _, v := range vd.Vulnerabilities {
 		r.Results.DatabaseVulnerabilities = append(r.Results.DatabaseVulnerabilities,
@@ -169,9 +169,9 @@ func addBinaryArtifactRawResults(r *jsonScorecardRawResult, ba *checker.BinaryAr
 //nolint:unparam
 func addSecurityPolicyRawResults(r *jsonScorecardRawResult, sp *checker.SecurityPolicyData) error {
 	r.Results.SecurityPolicies = []jsonFile{}
-	for _, v := range sp.Files {
+	for idx := range sp.PolicyFiles {
 		r.Results.SecurityPolicies = append(r.Results.SecurityPolicies, jsonFile{
-			Path: v.Path,
+			Path: sp.PolicyFiles[idx].File.Path,
 		})
 	}
 	return nil
@@ -189,7 +189,7 @@ func addDependencyUpdateToolRawResults(r *jsonScorecardRawResult,
 			URL:  t.URL,
 			Desc: t.Desc,
 		}
-		if t.Files != nil && len(t.Files) > 0 {
+		if len(t.Files) > 0 {
 			for _, f := range t.Files {
 				jt.Files = append(jt.Files, jsonFile{
 					Path: f.Path,
@@ -201,22 +201,22 @@ func addDependencyUpdateToolRawResults(r *jsonScorecardRawResult,
 	return nil
 }
 
-//nolint:unparam
 func addBranchProtectionRawResults(r *jsonScorecardRawResult, bp *checker.BranchProtectionsData) error {
 	r.Results.BranchProtections = []jsonBranchProtection{}
+	//nolint:gocritic
 	for _, v := range bp.Branches {
 		var bp *jsonBranchProtectionSettings
 		if v.Protected != nil && *v.Protected {
 			bp = &jsonBranchProtectionSettings{
 				AllowsDeletions:                     v.BranchProtectionRule.AllowDeletions,
 				AllowsForcePushes:                   v.BranchProtectionRule.AllowForcePushes,
-				RequiresCodeOwnerReviews:            v.BranchProtectionRule.RequiredPullRequestReviews.RequireCodeOwnerReviews,
+				RequiresCodeOwnerReviews:            v.BranchProtectionRule.PullRequestRule.RequireCodeOwnerReviews,
 				RequiresLinearHistory:               v.BranchProtectionRule.RequireLinearHistory,
-				DismissesStaleReviews:               v.BranchProtectionRule.RequiredPullRequestReviews.DismissStaleReviews,
+				DismissesStaleReviews:               v.BranchProtectionRule.PullRequestRule.DismissStaleReviews,
 				EnforcesAdmins:                      v.BranchProtectionRule.EnforceAdmins,
 				RequiresStatusChecks:                v.BranchProtectionRule.CheckRules.RequiresStatusChecks,
 				RequiresUpToDateBranchBeforeMerging: v.BranchProtectionRule.CheckRules.UpToDateBeforeMerge,
-				RequiredApprovingReviewCount:        v.BranchProtectionRule.RequiredPullRequestReviews.RequiredApprovingReviewCount,
+				RequiredApprovingReviewCount:        v.BranchProtectionRule.PullRequestRule.RequiredApprovingReviewCount,
 				StatusCheckContexts:                 v.BranchProtectionRule.CheckRules.Contexts,
 			}
 		}
@@ -229,8 +229,8 @@ func addBranchProtectionRawResults(r *jsonScorecardRawResult, bp *checker.Branch
 }
 
 func fillJSONRawResults(r *jsonScorecardRawResult, raw *checker.RawResults) error {
-	// Vulnerabiliries.
-	if err := addVulnerbilitiesRawResults(r, &raw.VulnerabilitiesResults); err != nil {
+	// Vulnerabilities.
+	if err := addVulnerabilitiesRawResults(r, &raw.VulnerabilitiesResults); err != nil {
 		return sce.WithMessage(sce.ErrScorecardInternal, err.Error())
 	}
 
@@ -263,7 +263,7 @@ func fillJSONRawResults(r *jsonScorecardRawResult, raw *checker.RawResults) erro
 }
 
 // AsRawJSON exports results as JSON for raw results.
-func AsRawJSON(r *pkg.ScorecardResult, writer io.Writer) error {
+func AsRawJSON(r *scorecard.Result, writer io.Writer) error {
 	encoder := json.NewEncoder(writer)
 	out := jsonScorecardRawResult{
 		Repo: jsonRepoV2{

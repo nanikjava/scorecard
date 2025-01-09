@@ -1,4 +1,4 @@
-// Copyright 2021 Security Scorecard Authors
+// Copyright 2021 OpenSSF Scorecard Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -21,10 +21,10 @@ import (
 
 	"github.com/rhysd/actionlint"
 
-	"github.com/ossf/scorecard/v4/checker"
-	"github.com/ossf/scorecard/v4/checks/fileparser"
-	"github.com/ossf/scorecard/v4/clients"
-	sce "github.com/ossf/scorecard/v4/errors"
+	"github.com/ossf/scorecard/v5/checker"
+	"github.com/ossf/scorecard/v5/checks/fileparser"
+	sce "github.com/ossf/scorecard/v5/errors"
+	"github.com/ossf/scorecard/v5/finding"
 )
 
 func containsUntrustedContextPattern(variable string) bool {
@@ -65,10 +65,10 @@ var (
 )
 
 // DangerousWorkflow retrieves the raw data for the DangerousWorkflow check.
-func DangerousWorkflow(c clients.RepoClient) (checker.DangerousWorkflowData, error) {
+func DangerousWorkflow(c *checker.CheckRequest) (checker.DangerousWorkflowData, error) {
 	// data is shared across all GitHub workflows.
 	var data checker.DangerousWorkflowData
-	err := fileparser.OnMatchingFileContentDo(c, fileparser.PathMatcher{
+	err := fileparser.OnMatchingFileContentDo(c.RepoClient, fileparser.PathMatcher{
 		Pattern:       ".github/workflows/*",
 		CaseSensitive: false,
 	}, validateGitHubActionWorkflowPatterns, &data)
@@ -100,6 +100,8 @@ var validateGitHubActionWorkflowPatterns fileparser.DoWhileTrueOnFileContent = f
 	if !fileparser.CheckFileContainsCommands(content, "#") {
 		return true, nil
 	}
+
+	pdata.NumWorkflows += 1
 
 	workflow, errs := actionlint.Parse(content)
 	if len(errs) > 0 && workflow == nil {
@@ -196,7 +198,7 @@ func checkJobForUntrustedCodeCheckout(job *actionlint.Job, path string,
 					Type: checker.DangerousWorkflowUntrustedCheckout,
 					File: checker.File{
 						Path:    path,
-						Type:    checker.FileTypeSource,
+						Type:    finding.FileTypeSource,
 						Offset:  line,
 						Snippet: ref.Value.Value,
 					},
@@ -255,7 +257,7 @@ func checkVariablesInScript(script string, pos *actionlint.Pos,
 				checker.DangerousWorkflow{
 					File: checker.File{
 						Path:    path,
-						Type:    checker.FileTypeSource,
+						Type:    finding.FileTypeSource,
 						Offset:  line,
 						Snippet: variable,
 					},

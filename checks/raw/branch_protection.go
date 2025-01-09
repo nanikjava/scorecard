@@ -1,4 +1,4 @@
-// Copyright 2021 Security Scorecard Authors
+// Copyright 2021 OpenSSF Scorecard Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,10 +16,12 @@ package raw
 
 import (
 	"fmt"
+	"reflect"
 	"regexp"
 
-	"github.com/ossf/scorecard/v4/checker"
-	"github.com/ossf/scorecard/v4/clients"
+	"github.com/ossf/scorecard/v5/checker"
+	"github.com/ossf/scorecard/v5/checks/fileparser"
+	"github.com/ossf/scorecard/v5/clients"
 )
 
 const master = "master"
@@ -43,13 +45,14 @@ func (set *branchSet) add(branch *clients.BranchRef) bool {
 	return false
 }
 
-func (set branchSet) contains(branch string) bool {
+func (set *branchSet) contains(branch string) bool {
 	_, contains := set.exists[branch]
 	return contains
 }
 
 // BranchProtection retrieves the raw data for the Branch-Protection check.
-func BranchProtection(c clients.RepoClient) (checker.BranchProtectionsData, error) {
+func BranchProtection(cr *checker.CheckRequest) (checker.BranchProtectionsData, error) {
+	c := cr.RepoClient
 	branches := branchSet{
 		exists: make(map[string]bool),
 	}
@@ -105,10 +108,50 @@ func BranchProtection(c clients.RepoClient) (checker.BranchProtectionsData, erro
 		// Branch doesn't exist or was deleted. Continue.
 	}
 
+	codeownersFiles := []string{}
+	if err := collectCodeownersFiles(c, &codeownersFiles); err != nil {
+		return checker.BranchProtectionsData{}, err
+	}
+
 	// No error, return the data.
 	return checker.BranchProtectionsData{
-		Branches: branches.set,
+		Branches:        branches.set,
+		CodeownersFiles: codeownersFiles,
 	}, nil
+}
+
+func collectCodeownersFiles(c clients.RepoClient, codeownersFiles *[]string) error {
+	return fileparser.OnMatchingFileContentDo(c, fileparser.PathMatcher{
+		Pattern:       "CODEOWNERS",
+		CaseSensitive: true,
+	}, addCodeownersFile, codeownersFiles)
+}
+
+var addCodeownersFile fileparser.DoWhileTrueOnFileContent = func(
+	path string,
+	content []byte,
+	args ...interface{},
+) (bool, error) {
+	if len(args) != 1 {
+		return false, fmt.Errorf(
+			"addCodeownersFile requires exactly 1 arguments: got %v: %w",
+			len(args), errInvalidArgLength)
+	}
+
+	codeownersFiles := dataAsStringSlicePtr(args[0])
+
+	*codeownersFiles = append(*codeownersFiles, path)
+
+	return true, nil
+}
+
+func dataAsStringSlicePtr(data interface{}) *[]string {
+	pdata, ok := data.(*[]string)
+	if !ok {
+		// panic if it is not correct type
+		panic(fmt.Sprintf("expected type *[]string, got %v", reflect.TypeOf(data)))
+	}
+	return pdata
 }
 
 func branchRedirect(name string) string {

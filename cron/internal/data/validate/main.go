@@ -1,4 +1,4 @@
-// Copyright 2021 Security Scorecard Authors
+// Copyright 2021 OpenSSF Scorecard Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,12 +19,12 @@ import (
 	"log"
 	"os"
 
-	"github.com/ossf/scorecard/v4/cron/data"
+	"github.com/ossf/scorecard/v5/cron/data"
 )
 
 // Validates data.Iterator used by production PubSub cron job.
 // * Check for no duplicates in repoURLs.
-// * Check repoURL is a valid GitHub URL.
+// * Check repoURL is a valid GitHub/GitLab URL.
 func main() {
 	if len(os.Args) != 2 {
 		panic("must provide single argument")

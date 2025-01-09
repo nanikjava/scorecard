@@ -1,4 +1,4 @@
-// Copyright 2020 Security Scorecard Authors
+// Copyright 2020 OpenSSF Scorecard Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,11 +17,12 @@ package fileparser
 import (
 	"bufio"
 	"fmt"
+	"io"
 	"path"
 	"strings"
 
-	"github.com/ossf/scorecard/v4/clients"
-	sce "github.com/ossf/scorecard/v4/errors"
+	"github.com/ossf/scorecard/v5/clients"
+	sce "github.com/ossf/scorecard/v5/errors"
 )
 
 // isMatchingPath uses 'pattern' to shell-match the 'path' and its filename
@@ -52,13 +53,30 @@ func isMatchingPath(fullpath string, matchPathTo PathMatcher) (bool, error) {
 func isTestdataFile(fullpath string) bool {
 	// testdata/ or /some/dir/testdata/some/other
 	return strings.HasPrefix(fullpath, "testdata/") ||
-		strings.Contains(fullpath, "/testdata/")
+		strings.Contains(fullpath, "/testdata/") ||
+		strings.HasPrefix(fullpath, "src/test/") ||
+		strings.Contains(fullpath, "/src/test/")
 }
 
 // PathMatcher represents a query for a filepath.
 type PathMatcher struct {
 	Pattern       string
 	CaseSensitive bool
+}
+
+// DoWhileTrueOnFileReader takes a filepath, its reader and
+// optional variadic args. It returns a boolean indicating whether
+// iterating over next files should continue.
+type DoWhileTrueOnFileReader func(path string, reader io.Reader, args ...interface{}) (bool, error)
+
+// OnMatchingFileReaderDo matches all files listed by `repoClient` against `matchPathTo`
+// and on every successful match, runs onFileReader fn on the file's reader.
+// Continues iterating along the matched files until onFileReader returns
+// either a false value or an error.
+func OnMatchingFileReaderDo(repoClient clients.RepoClient, matchPathTo PathMatcher,
+	onFileReader DoWhileTrueOnFileReader, args ...interface{},
+) error {
+	return onMatchingFileDo(repoClient, matchPathTo, onFileReader, args...)
 }
 
 // DoWhileTrueOnFileContent takes a filepath, its content and
@@ -72,6 +90,12 @@ type DoWhileTrueOnFileContent func(path string, content []byte, args ...interfac
 // either a false value or an error.
 func OnMatchingFileContentDo(repoClient clients.RepoClient, matchPathTo PathMatcher,
 	onFileContent DoWhileTrueOnFileContent, args ...interface{},
+) error {
+	return onMatchingFileDo(repoClient, matchPathTo, onFileContent, args...)
+}
+
+func onMatchingFileDo(repoClient clients.RepoClient, matchPathTo PathMatcher,
+	onFile any, args ...interface{},
 ) error {
 	predicate := func(filepath string) (bool, error) {
 		// Filter out test files.
@@ -92,12 +116,28 @@ func OnMatchingFileContentDo(repoClient clients.RepoClient, matchPathTo PathMatc
 	}
 
 	for _, file := range matchedFiles {
-		content, err := repoClient.GetFileContent(file)
+		reader, err := repoClient.GetFileReader(file)
 		if err != nil {
-			return fmt.Errorf("error during GetFileContent: %w", err)
+			return fmt.Errorf("error during GetFileReader: %w", err)
 		}
 
-		continueIter, err := onFileContent(file, content, args...)
+		var continueIter bool
+		switch f := onFile.(type) {
+		case DoWhileTrueOnFileReader:
+			continueIter, err = f(file, reader, args...)
+			reader.Close()
+		case DoWhileTrueOnFileContent:
+			var content []byte
+			content, err = io.ReadAll(reader)
+			reader.Close()
+			if err != nil {
+				return fmt.Errorf("reading from file: %w", err)
+			}
+			continueIter, err = f(file, content, args...)
+		default:
+			msg := fmt.Sprintf("invalid type (%T) passed to onMatchingFileDo", f)
+			return sce.WithMessage(sce.ErrScorecardInternal, msg)
+		}
 		if err != nil {
 			return err
 		}

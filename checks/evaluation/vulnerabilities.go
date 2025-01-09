@@ -1,4 +1,4 @@
-// Copyright 2022 Security Scorecard Authors
+// Copyright 2022 OpenSSF Scorecard Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,39 +16,42 @@ package evaluation
 
 import (
 	"fmt"
-	"strings"
 
-	"github.com/ossf/scorecard/v4/checker"
-	sce "github.com/ossf/scorecard/v4/errors"
+	"github.com/ossf/scorecard/v5/checker"
+	sce "github.com/ossf/scorecard/v5/errors"
+	"github.com/ossf/scorecard/v5/finding"
+	"github.com/ossf/scorecard/v5/probes/hasOSVVulnerabilities"
 )
 
 // Vulnerabilities applies the score policy for the Vulnerabilities check.
-func Vulnerabilities(name string, dl checker.DetailLogger,
-	r *checker.VulnerabilitiesData,
+func Vulnerabilities(name string,
+	findings []finding.Finding,
+	dl checker.DetailLogger,
 ) checker.CheckResult {
-	if r == nil {
-		e := sce.WithMessage(sce.ErrScorecardInternal, "empty raw data")
+	expectedProbes := []string{
+		hasOSVVulnerabilities.Probe,
+	}
+
+	if !finding.UniqueProbesEqual(findings, expectedProbes) {
+		e := sce.WithMessage(sce.ErrScorecardInternal, "invalid probe results")
 		return checker.CreateRuntimeErrorResult(name, e)
 	}
 
-	score := checker.MaxResultScore
-	IDs := []string{}
-	for _, vuln := range r.Vulnerabilities {
-		IDs = append(IDs, vuln.ID)
-		score--
+	var numVulnsFound int
+	for i := range findings {
+		f := &findings[i]
+		if f.Outcome == finding.OutcomeTrue {
+			numVulnsFound++
+			checker.LogFinding(dl, f, checker.DetailWarn)
+		}
 	}
+
+	score := checker.MaxResultScore - numVulnsFound
 
 	if score < checker.MinResultScore {
 		score = checker.MinResultScore
 	}
 
-	if len(IDs) > 0 {
-		dl.Warn(&checker.LogMessage{
-			Text: fmt.Sprintf("HEAD is vulnerable to %s", strings.Join(IDs, ", ")),
-		})
-		return checker.CreateResultWithScore(name,
-			fmt.Sprintf("%v existing vulnerabilities detected", len(IDs)), score)
-	}
-
-	return checker.CreateMaxScoreResult(name, "no vulnerabilities detected")
+	return checker.CreateResultWithScore(name,
+		fmt.Sprintf("%v existing vulnerabilities detected", numVulnsFound), score)
 }

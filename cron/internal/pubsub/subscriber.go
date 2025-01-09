@@ -1,4 +1,4 @@
-// Copyright 2021 Security Scorecard Authors
+// Copyright 2021 OpenSSF Scorecard Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,16 +16,13 @@ package pubsub
 
 import (
 	"context"
-	"errors"
 	"fmt"
+	"os"
 
 	"google.golang.org/protobuf/encoding/protojson"
 
-	"github.com/ossf/scorecard/v4/cron/data"
+	"github.com/ossf/scorecard/v5/cron/data"
 )
-
-// ErrorInParse indicates there was an error while unmarshalling the protocol buffer message.
-var ErrorInParse = errors.New("error during protojson.Unmarshal")
 
 // Subscriber interface is used pull messages from PubSub.
 type Subscriber interface {
@@ -38,13 +35,17 @@ type Subscriber interface {
 // CreateSubscriber returns an implementation of Subscriber interface.
 // Currently returns an instance of gcsSubscriber.
 func CreateSubscriber(ctx context.Context, subscriptionURL string) (Subscriber, error) {
+	// the gocloud clients respect PUBSUB_EMULATOR_HOST, but our custom GCS subscriber does not
+	if os.Getenv("PUBSUB_EMULATOR_HOST") != "" {
+		return createGocloudSubscriber(ctx, subscriptionURL)
+	}
 	return createGCSSubscriber(ctx, subscriptionURL)
 }
 
 func parseJSONToRequest(jsonData []byte) (*data.ScorecardBatchRequest, error) {
 	ret := &data.ScorecardBatchRequest{}
 	if err := protojson.Unmarshal(jsonData, ret); err != nil {
-		return nil, fmt.Errorf("%w: %v", ErrorInParse, err)
+		return nil, fmt.Errorf("protojson.Unmarshal: %w", err)
 	}
 	return ret, nil
 }

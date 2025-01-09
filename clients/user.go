@@ -1,4 +1,4 @@
-// Copyright 2021 Security Scorecard Authors
+// Copyright 2021 OpenSSF Scorecard Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -21,13 +21,14 @@ type User struct {
 	Organizations    []User
 	NumContributions int
 	ID               int64
+	IsBot            bool
 }
 
 // RepoAssociation is how a user is associated with a repository.
 type RepoAssociation uint32
 
 // Values taken from https://docs.github.com/en/graphql/reference/enums#commentauthorassociation.
-// Additional values may be added in the future for non-Github projects.
+// Additional values may be added in the future for non-GitHub projects.
 // NOTE: Values are present in increasing order of privilege. If adding new values
 // maintain the order of privilege to ensure Gte() functionality is preserved.
 const (

@@ -1,4 +1,4 @@
-// Copyright 2021 Security Scorecard Authors
+// Copyright 2021 OpenSSF Scorecard Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -23,7 +23,6 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	clients "github.com/ossf/scorecard/v4/clients"
 )
 
 // MockRepo is a mock of Repo interface.
@@ -65,6 +64,20 @@ func (mr *MockRepoMockRecorder) AppendMetadata(metadata ...interface{}) *gomock.
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AppendMetadata", reflect.TypeOf((*MockRepo)(nil).AppendMetadata), metadata...)
 }
 
+// Host mocks base method.
+func (m *MockRepo) Host() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Host")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// Host indicates an expected call of Host.
+func (mr *MockRepoMockRecorder) Host() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Host", reflect.TypeOf((*MockRepo)(nil).Host))
+}
+
 // IsValid mocks base method.
 func (m *MockRepo) IsValid() error {
 	m.ctrl.T.Helper()
@@ -93,18 +106,18 @@ func (mr *MockRepoMockRecorder) Metadata() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Metadata", reflect.TypeOf((*MockRepo)(nil).Metadata))
 }
 
-// Org mocks base method.
-func (m *MockRepo) Org() clients.Repo {
+// Path mocks base method.
+func (m *MockRepo) Path() string {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Org")
-	ret0, _ := ret[0].(clients.Repo)
+	ret := m.ctrl.Call(m, "Path")
+	ret0, _ := ret[0].(string)
 	return ret0
 }
 
-// Org indicates an expected call of Org.
-func (mr *MockRepoMockRecorder) Org() *gomock.Call {
+// Path indicates an expected call of Path.
+func (mr *MockRepoMockRecorder) Path() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Org", reflect.TypeOf((*MockRepo)(nil).Org))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Path", reflect.TypeOf((*MockRepo)(nil).Path))
 }
 
 // String mocks base method.

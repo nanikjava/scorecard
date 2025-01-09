@@ -1,4 +1,4 @@
-// Copyright 2021 Security Scorecard Authors
+// Copyright 2021 OpenSSF Scorecard Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -23,12 +23,13 @@ type BranchRef struct {
 
 // BranchProtectionRule captures the settings enabled on a branch for security.
 type BranchProtectionRule struct {
-	RequiredPullRequestReviews PullRequestReviewRule
-	AllowDeletions             *bool
-	AllowForcePushes           *bool
-	RequireLinearHistory       *bool
-	EnforceAdmins              *bool
-	CheckRules                 StatusChecksRule
+	PullRequestRule         PullRequestRule
+	AllowDeletions          *bool
+	AllowForcePushes        *bool
+	RequireLinearHistory    *bool
+	EnforceAdmins           *bool
+	RequireLastPushApproval *bool
+	CheckRules              StatusChecksRule
 }
 
 // StatusChecksRule captures settings on status checks.
@@ -38,8 +39,9 @@ type StatusChecksRule struct {
 	Contexts             []string
 }
 
-// PullRequestReviewRule captures settings on a PullRequest.
-type PullRequestReviewRule struct {
+// PullRequestRule captures settings on a PullRequest.
+type PullRequestRule struct {
+	Required                     *bool // are PRs required
 	RequiredApprovingReviewCount *int32
 	DismissStaleReviews          *bool
 	RequireCodeOwnerReviews      *bool

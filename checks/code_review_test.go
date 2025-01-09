@@ -1,4 +1,4 @@
-// Copyright 2022 Security Scorecard Authors
+// Copyright 2023 OpenSSF Scorecard Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -21,50 +21,34 @@ import (
 
 	"github.com/golang/mock/gomock"
 
-	"github.com/ossf/scorecard/v4/checker"
-	"github.com/ossf/scorecard/v4/clients"
-	mockrepo "github.com/ossf/scorecard/v4/clients/mockclients"
-	scut "github.com/ossf/scorecard/v4/utests"
+	"github.com/ossf/scorecard/v5/checker"
+	"github.com/ossf/scorecard/v5/clients"
+	mockrepo "github.com/ossf/scorecard/v5/clients/mockclients"
+	sce "github.com/ossf/scorecard/v5/errors"
+	scut "github.com/ossf/scorecard/v5/utests"
 )
 
 // TestCodeReview tests the code review checker.
 func TestCodereview(t *testing.T) {
 	t.Parallel()
-	//fieldalignment lint issue. Ignoring it as it is not important for this test.
-	//nolint
 	tests := []struct {
-		err       error
 		name      string
-		commiterr error
+		commitErr error
 		commits   []clients.Commit
-		expected  checker.CheckResult
+		expected  scut.TestReturn
 	}{
 		{
 			name: "no commits",
-			expected: checker.CheckResult{
+			expected: scut.TestReturn{
 				Score: -1,
 			},
 		},
 		{
-			name:      "no commits with error",
-			commiterr: errors.New("error"),
-			expected: checker.CheckResult{
+			name:      "no commits due to error",
+			commitErr: errors.New("error fetching commits"),
+			expected: scut.TestReturn{
 				Score: -1,
-			},
-		},
-		{
-			name: "no PR's with error",
-			err:  errors.New("error"),
-			expected: checker.CheckResult{
-				Score: -1,
-			},
-		},
-		{
-			name:      "no PR's with error as well as commits",
-			err:       errors.New("error"),
-			commiterr: errors.New("error"),
-			expected: checker.CheckResult{
-				Score: -1,
+				Error: sce.ErrScorecardInternal,
 			},
 		},
 		{
@@ -73,20 +57,21 @@ func TestCodereview(t *testing.T) {
 				{
 					SHA: "sha",
 					Committer: clients.User{
-						Login: "user",
+						Login: "bob",
 					},
 					AssociatedMergeRequest: clients.PullRequest{
 						Number:   1,
 						MergedAt: time.Now(),
 						Reviews: []clients.Review{
 							{
-								State: "APPROVED",
+								Author: &clients.User{Login: "alice"},
+								State:  "APPROVED",
 							},
 						},
 					},
 				},
 			},
-			expected: checker.CheckResult{
+			expected: scut.TestReturn{
 				Score: 10,
 			},
 		},
@@ -109,7 +94,7 @@ func TestCodereview(t *testing.T) {
 					},
 				},
 			},
-			expected: checker.CheckResult{
+			expected: scut.TestReturn{
 				Score: 10,
 			},
 		},
@@ -132,7 +117,7 @@ func TestCodereview(t *testing.T) {
 					},
 				},
 			},
-			expected: checker.CheckResult{
+			expected: scut.TestReturn{
 				Score: 10,
 			},
 		},
@@ -154,15 +139,15 @@ func TestCodereview(t *testing.T) {
 					},
 				},
 			},
-			expected: checker.CheckResult{
+			expected: scut.TestReturn{
 				Score: 0,
 			},
 		},
 		{
-			name: "2 PRs 2 review on GitHub",
+			name: "2 PRs 1 review on GitHub",
 			commits: []clients.Commit{
 				{
-					SHA: "sha",
+					SHA: "a",
 					Committer: clients.User{
 						Login: "bob",
 					},
@@ -171,7 +156,8 @@ func TestCodereview(t *testing.T) {
 						MergedAt: time.Now(),
 						Reviews: []clients.Review{
 							{
-								State: "APPROVED",
+								Author: &clients.User{Login: "alice"},
+								State:  "APPROVED",
 							},
 						},
 					},
@@ -183,7 +169,32 @@ func TestCodereview(t *testing.T) {
 					},
 				},
 			},
-			expected: checker.CheckResult{
+			expected: scut.TestReturn{
+				Score: 5,
+			},
+		},
+		{
+			name: "implicit maintainer approval through merge",
+			commits: []clients.Commit{
+				{
+					SHA: "abc",
+					Committer: clients.User{
+						Login: "bob",
+					},
+					AssociatedMergeRequest: clients.PullRequest{
+						Number:   1,
+						MergedAt: time.Now(),
+						MergedBy: clients.User{Login: "alice"},
+					},
+				},
+				{
+					SHA: "def",
+					Committer: clients.User{
+						Login: "bob",
+					},
+				},
+			},
+			expected: scut.TestReturn{
 				Score: 5,
 			},
 		},
@@ -195,10 +206,10 @@ func TestCodereview(t *testing.T) {
 					Committer: clients.User{
 						Login: "bob",
 					},
-					Message: "Title\nReviewed By: alice\nDifferential Revision: PHAB234",
+					Message: "Title\nReviewed By: alice\nDifferential Revision: D234",
 				},
 			},
-			expected: checker.CheckResult{
+			expected: scut.TestReturn{
 				Score: 10,
 			},
 		},
@@ -213,7 +224,7 @@ func TestCodereview(t *testing.T) {
 					Message: "Title\nReviewed By: alice",
 				},
 			},
-			expected: checker.CheckResult{
+			expected: scut.TestReturn{
 				Score: 0,
 			},
 		},
@@ -225,10 +236,10 @@ func TestCodereview(t *testing.T) {
 					Committer: clients.User{
 						Login: "bob",
 					},
-					Message: "Title\nDifferential Revision: PHAB234",
+					Message: "Title\nDifferential Revision: D234",
 				},
 			},
-			expected: checker.CheckResult{
+			expected: scut.TestReturn{
 				Score: checker.MaxResultScore,
 			},
 		},
@@ -243,38 +254,30 @@ func TestCodereview(t *testing.T) {
 					Message: "Title\nPiperOrigin-RevId: 444529962",
 				},
 			},
-			expected: checker.CheckResult{
+			expected: scut.TestReturn{
 				Score: 10,
 			},
 		},
 	}
 
 	for _, tt := range tests {
-		tt := tt // Re-initializing variable so it is not changed while executing the closure below
+		tt := tt // Re-initializing variable so it is not changed while executing the closure below.
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			ctrl := gomock.NewController(t)
 			mockRepo := mockrepo.NewMockRepoClient(ctrl)
-			mockRepo.EXPECT().ListCommits().Return(tt.commits, tt.err).AnyTimes()
+			mockRepo.EXPECT().ListCommits().Return(tt.commits, tt.commitErr).AnyTimes()
 
+			var dl scut.TestDetailLogger
 			req := checker.CheckRequest{
 				RepoClient: mockRepo,
+				Dlogger:    &dl,
 			}
-			req.Dlogger = &scut.TestDetailLogger{}
 			res := CodeReview(&req)
-
-			if tt.err != nil {
-				if res.Error == nil {
-					t.Errorf("Expected error %v, got nil", tt.err)
-				}
-				// return as we don't need to check the rest of the fields.
-				return
+			if tt.commitErr != nil && res.Error == nil {
+				t.Fatalf("Expected error %v, got nil", tt.commitErr)
 			}
-
-			if res.Score != tt.expected.Score {
-				t.Errorf("Expected score %d, got %d for %v", tt.expected.Score, res.Score, tt.name)
-			}
-			ctrl.Finish()
+			scut.ValidateTestReturn(t, tt.name, &tt.expected, &res, &dl)
 		})
 	}
 }
