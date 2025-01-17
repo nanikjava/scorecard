@@ -1,4 +1,4 @@
-// Copyright 2021 Security Scorecard Authors
+// Copyright 2021 OpenSSF Scorecard Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -21,12 +21,12 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"github.com/ossf/scorecard/v4/checker"
-	"github.com/ossf/scorecard/v4/checks"
-	"github.com/ossf/scorecard/v4/clients"
-	"github.com/ossf/scorecard/v4/clients/githubrepo"
-	"github.com/ossf/scorecard/v4/clients/localdir"
-	scut "github.com/ossf/scorecard/v4/utests"
+	"github.com/ossf/scorecard/v5/checker"
+	"github.com/ossf/scorecard/v5/checks"
+	"github.com/ossf/scorecard/v5/clients"
+	"github.com/ossf/scorecard/v5/clients/githubrepo"
+	"github.com/ossf/scorecard/v5/clients/localdir"
+	scut "github.com/ossf/scorecard/v5/utests"
 )
 
 var _ = Describe("E2E TEST:"+checks.CheckTokenPermissions, func() {
@@ -36,7 +36,7 @@ var _ = Describe("E2E TEST:"+checks.CheckTokenPermissions, func() {
 			repo, err := githubrepo.MakeGithubRepo("ossf-tests/scorecard-check-token-permissions-e2e")
 			Expect(err).Should(BeNil())
 			repoClient := githubrepo.CreateGithubRepoClient(context.Background(), logger)
-			err = repoClient.InitRepo(repo, clients.HeadSHA)
+			err = repoClient.InitRepo(repo, clients.HeadSHA, 0)
 			Expect(err).Should(BeNil())
 			req := checker.CheckRequest{
 				Ctx:        context.Background(),
@@ -48,12 +48,12 @@ var _ = Describe("E2E TEST:"+checks.CheckTokenPermissions, func() {
 				Error:         nil,
 				Score:         checker.MinResultScore,
 				NumberOfWarn:  1,
-				NumberOfInfo:  2,
+				NumberOfInfo:  3,
 				NumberOfDebug: 5,
 			}
 			result := checks.TokenPermissions(&req)
 			// New version.
-			Expect(scut.ValidateTestReturn(nil, "token permissions", &expected, &result, &dl)).Should(BeTrue())
+			scut.ValidateTestReturn(GinkgoTB(), "token permissions", &expected, &result, &dl)
 			Expect(repoClient.Close()).Should(BeNil())
 		})
 		It("Should return token permission at commit", func() {
@@ -61,7 +61,7 @@ var _ = Describe("E2E TEST:"+checks.CheckTokenPermissions, func() {
 			repo, err := githubrepo.MakeGithubRepo("ossf-tests/scorecard-check-token-permissions-e2e")
 			Expect(err).Should(BeNil())
 			repoClient := githubrepo.CreateGithubRepoClient(context.Background(), logger)
-			err = repoClient.InitRepo(repo, "35a3425d1e682c32946b7d36adcfd772cf772e63")
+			err = repoClient.InitRepo(repo, "35a3425d1e682c32946b7d36adcfd772cf772e63", 0)
 			Expect(err).Should(BeNil())
 			req := checker.CheckRequest{
 				Ctx:        context.Background(),
@@ -73,12 +73,12 @@ var _ = Describe("E2E TEST:"+checks.CheckTokenPermissions, func() {
 				Error:         nil,
 				Score:         checker.MinResultScore,
 				NumberOfWarn:  1,
-				NumberOfInfo:  2,
+				NumberOfInfo:  3,
 				NumberOfDebug: 5,
 			}
 			result := checks.TokenPermissions(&req)
 			// New version.
-			Expect(scut.ValidateTestReturn(nil, "token permissions", &expected, &result, &dl)).Should(BeTrue())
+			scut.ValidateTestReturn(GinkgoTB(), "token permissions", &expected, &result, &dl)
 			Expect(repoClient.Close()).Should(BeNil())
 		})
 		It("Should return token permission for a local repo client", func() {
@@ -97,7 +97,7 @@ var _ = Describe("E2E TEST:"+checks.CheckTokenPermissions, func() {
 			Expect(err).Should(BeNil())
 
 			x := localdir.CreateLocalDirClient(context.Background(), logger)
-			err = x.InitRepo(repo, clients.HeadSHA)
+			err = x.InitRepo(repo, clients.HeadSHA, 0)
 			Expect(err).Should(BeNil())
 
 			req := checker.CheckRequest{
@@ -110,12 +110,12 @@ var _ = Describe("E2E TEST:"+checks.CheckTokenPermissions, func() {
 				Error:         nil,
 				Score:         checker.MinResultScore,
 				NumberOfWarn:  1,
-				NumberOfInfo:  2,
+				NumberOfInfo:  3,
 				NumberOfDebug: 5,
 			}
 			result := checks.TokenPermissions(&req)
 			// New version.
-			Expect(scut.ValidateTestReturn(nil, "token permissions", &expected, &result, &dl)).Should(BeTrue())
+			scut.ValidateTestReturn(GinkgoTB(), "token permissions", &expected, &result, &dl)
 			Expect(x.Close()).Should(BeNil())
 		})
 	})

@@ -1,4 +1,4 @@
-// Copyright 2021 Security Scorecard Authors
+// Copyright 2021 OpenSSF Scorecard Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,59 +15,49 @@
 package evaluation
 
 import (
-	"fmt"
+	"strconv"
 
-	"github.com/ossf/scorecard/v4/checker"
-	sce "github.com/ossf/scorecard/v4/errors"
+	"github.com/ossf/scorecard/v5/checker"
+	sce "github.com/ossf/scorecard/v5/errors"
+	"github.com/ossf/scorecard/v5/finding"
+	"github.com/ossf/scorecard/v5/probes/codeApproved"
 )
-
-type reviewScore = int
 
 // TODO(raghavkaul) More partial credit? E.g. approval from non-contributor, discussion liveness,
 // number of resolved comments, number of approvers (more eyes on a project).
-const (
-	noReview              reviewScore = 0 // No approving review before merge
-	changesReviewed       reviewScore = 1 // Changes were reviewed
-	reviewedOutsideGithub reviewScore = 1 // Full marks until we can check review platforms outside of GitHub
-)
 
 // CodeReview applies the score policy for the Code-Review check.
-func CodeReview(name string, dl checker.DetailLogger, r *checker.CodeReviewData) checker.CheckResult {
-	if r == nil {
-		e := sce.WithMessage(sce.ErrScorecardInternal, "empty raw data")
+func CodeReview(name string, findings []finding.Finding, dl checker.DetailLogger) checker.CheckResult {
+	expectedProbes := []string{
+		codeApproved.Probe,
+	}
+
+	if !finding.UniqueProbesEqual(findings, expectedProbes) {
+		e := sce.WithMessage(sce.ErrScorecardInternal, "invalid probe results")
 		return checker.CreateRuntimeErrorResult(name, e)
 	}
 
-	if len(r.DefaultBranchChangesets) == 0 {
-		return checker.CreateInconclusiveResult(name, "no commits found")
-	}
-
-	numReviewed := 0
-	for i := range r.DefaultBranchChangesets {
-		score := reviewScoreForChangeset(&r.DefaultBranchChangesets[i])
-		if score >= changesReviewed {
-			numReviewed += 1
-		}
-	}
-	reason := fmt.Sprintf(
-		"%v out of last %v changesets reviewed before merge", numReviewed, len(r.DefaultBranchChangesets),
-	)
-
-	return checker.CreateProportionalScoreResult(name, reason, numReviewed, len(r.DefaultBranchChangesets))
-}
-
-func reviewScoreForChangeset(changeset *checker.Changeset) (score reviewScore) {
-	if changeset.ReviewPlatform != "" && changeset.ReviewPlatform != checker.ReviewPlatformGitHub {
-		return reviewedOutsideGithub
-	}
-
-	for i := range changeset.Commits {
-		for _, review := range changeset.Commits[i].AssociatedMergeRequest.Reviews {
-			if review.State == "APPROVED" {
-				return changesReviewed
+	for _, f := range findings {
+		switch f.Outcome {
+		case finding.OutcomeNotApplicable:
+			return checker.CreateInconclusiveResult(name, f.Message)
+		case finding.OutcomeTrue:
+			return checker.CreateMaxScoreResult(name, "all changesets reviewed")
+		case finding.OutcomeError:
+			return checker.CreateRuntimeErrorResult(name, sce.WithMessage(sce.ErrScorecardInternal, f.Message))
+		default:
+			approved, err := strconv.Atoi(f.Values[codeApproved.NumApprovedKey])
+			if err != nil {
+				err = sce.WithMessage(sce.ErrScorecardInternal, "converting approved count: %v")
+				return checker.CreateRuntimeErrorResult(name, err)
 			}
+			total, err := strconv.Atoi(f.Values[codeApproved.NumTotalKey])
+			if err != nil {
+				err = sce.WithMessage(sce.ErrScorecardInternal, "converting total count: %v")
+				return checker.CreateRuntimeErrorResult(name, err)
+			}
+			return checker.CreateProportionalScoreResult(name, f.Message, approved, total)
 		}
 	}
-
-	return noReview
+	return checker.CreateMaxScoreResult(name, "all changesets reviewed")
 }

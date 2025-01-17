@@ -1,4 +1,4 @@
-// Copyright 2021 Security Scorecard Authors
+// Copyright 2021 OpenSSF Scorecard Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -22,12 +22,12 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"github.com/ossf/scorecard/v4/checker"
-	"github.com/ossf/scorecard/v4/checks"
-	"github.com/ossf/scorecard/v4/clients"
-	"github.com/ossf/scorecard/v4/clients/githubrepo"
-	"github.com/ossf/scorecard/v4/clients/localdir"
-	scut "github.com/ossf/scorecard/v4/utests"
+	"github.com/ossf/scorecard/v5/checker"
+	"github.com/ossf/scorecard/v5/checks"
+	"github.com/ossf/scorecard/v5/clients"
+	"github.com/ossf/scorecard/v5/clients/githubrepo"
+	"github.com/ossf/scorecard/v5/clients/localdir"
+	scut "github.com/ossf/scorecard/v5/utests"
 )
 
 // TODO: use dedicated repo that don't change.
@@ -39,7 +39,7 @@ var _ = Describe("E2E TEST:"+checks.CheckBinaryArtifacts, func() {
 			repo, err := githubrepo.MakeGithubRepo("ossf/scorecard")
 			Expect(err).Should(BeNil())
 			repoClient := githubrepo.CreateGithubRepoClient(context.Background(), logger)
-			err = repoClient.InitRepo(repo, clients.HeadSHA)
+			err = repoClient.InitRepo(repo, clients.HeadSHA, 0)
 			Expect(err).Should(BeNil())
 
 			req := checker.CheckRequest{
@@ -57,7 +57,7 @@ var _ = Describe("E2E TEST:"+checks.CheckBinaryArtifacts, func() {
 			}
 
 			result := checks.BinaryArtifacts(&req)
-			Expect(scut.ValidateTestReturn(nil, "no binary artifacts", &expected, &result, &dl)).Should(BeTrue())
+			scut.ValidateTestReturn(GinkgoTB(), "no binary artifacts", &expected, &result, &dl)
 			Expect(repoClient.Close()).Should(BeNil())
 		})
 		It("Should return binary artifacts present in source code", func() {
@@ -65,7 +65,7 @@ var _ = Describe("E2E TEST:"+checks.CheckBinaryArtifacts, func() {
 			repo, err := githubrepo.MakeGithubRepo("ossf-tests/scorecard-check-binary-artifacts-e2e")
 			Expect(err).Should(BeNil())
 			repoClient := githubrepo.CreateGithubRepoClient(context.Background(), logger)
-			err = repoClient.InitRepo(repo, clients.HeadSHA)
+			err = repoClient.InitRepo(repo, clients.HeadSHA, 0)
 			Expect(err).Should(BeNil())
 
 			req := checker.CheckRequest{
@@ -75,7 +75,7 @@ var _ = Describe("E2E TEST:"+checks.CheckBinaryArtifacts, func() {
 				Dlogger:    &dl,
 			}
 			// TODO: upload real binaries to the repo as well.
-			// There are 24 dummy binaries that are ignoreed because they only contain ASCII characters.
+			// There are 24 dummy binaries that are ignored because they only contain ASCII characters.
 			expected := scut.TestReturn{
 				Error:         nil,
 				Score:         checker.MaxResultScore - 1,
@@ -84,7 +84,7 @@ var _ = Describe("E2E TEST:"+checks.CheckBinaryArtifacts, func() {
 				NumberOfDebug: 0,
 			}
 			result := checks.BinaryArtifacts(&req)
-			Expect(scut.ValidateTestReturn(nil, "binary artifacts", &expected, &result, &dl)).Should(BeTrue())
+			scut.ValidateTestReturn(GinkgoTB(), "binary artifacts", &expected, &result, &dl)
 			Expect(repoClient.Close()).Should(BeNil())
 		})
 		It("Should return binary artifacts present at commit in source code", func() {
@@ -92,7 +92,7 @@ var _ = Describe("E2E TEST:"+checks.CheckBinaryArtifacts, func() {
 			repo, err := githubrepo.MakeGithubRepo("ossf-tests/scorecard-check-binary-artifacts-e2e")
 			Expect(err).Should(BeNil())
 			repoClient := githubrepo.CreateGithubRepoClient(context.Background(), logger)
-			err = repoClient.InitRepo(repo, "5b48dea88825662d67ed94b609b45cf7705333b6")
+			err = repoClient.InitRepo(repo, "5b48dea88825662d67ed94b609b45cf7705333b6", 0)
 			Expect(err).Should(BeNil())
 
 			req := checker.CheckRequest{
@@ -102,7 +102,7 @@ var _ = Describe("E2E TEST:"+checks.CheckBinaryArtifacts, func() {
 				Dlogger:    &dl,
 			}
 			// TODO: upload real binaries to the repo as well.
-			// There are 24 dummy binaries that are ignoreed because they only contain ASCII characters.
+			// There are 24 dummy binaries that are ignored because they only contain ASCII characters.
 			expected := scut.TestReturn{
 				Error:         nil,
 				Score:         checker.MaxResultScore - 1,
@@ -111,7 +111,7 @@ var _ = Describe("E2E TEST:"+checks.CheckBinaryArtifacts, func() {
 				NumberOfDebug: 0,
 			}
 			result := checks.BinaryArtifacts(&req)
-			Expect(scut.ValidateTestReturn(nil, "binary artifacts", &expected, &result, &dl)).Should(BeTrue())
+			scut.ValidateTestReturn(GinkgoTB(), "binary artifacts", &expected, &result, &dl)
 			Expect(repoClient.Close()).Should(BeNil())
 		})
 		It("Should return no binary artifacts present in source code", func() {
@@ -119,7 +119,7 @@ var _ = Describe("E2E TEST:"+checks.CheckBinaryArtifacts, func() {
 			repo, err := githubrepo.MakeGithubRepo("ossf-tests/scorecard-check-binary-artifacts-e2e-4-binaries")
 			Expect(err).Should(BeNil())
 			repoClient := githubrepo.CreateGithubRepoClient(context.Background(), logger)
-			err = repoClient.InitRepo(repo, clients.HeadSHA)
+			err = repoClient.InitRepo(repo, clients.HeadSHA, 0)
 			Expect(err).Should(BeNil())
 
 			req := checker.CheckRequest{
@@ -129,7 +129,7 @@ var _ = Describe("E2E TEST:"+checks.CheckBinaryArtifacts, func() {
 				Dlogger:    &dl,
 			}
 			// TODO: upload real binaries to the repo as well.
-			// Existing binaries only contain SCII characters and are ignored.
+			// Existing binaries only contain ASCII characters and are ignored.
 			expected := scut.TestReturn{
 				Error:         nil,
 				Score:         checker.MaxResultScore,
@@ -139,7 +139,7 @@ var _ = Describe("E2E TEST:"+checks.CheckBinaryArtifacts, func() {
 			}
 			result := checks.BinaryArtifacts(&req)
 			// New version.
-			Expect(scut.ValidateTestReturn(nil, "binary artifacts", &expected, &result, &dl)).Should(BeTrue())
+			scut.ValidateTestReturn(GinkgoTB(), "binary artifacts", &expected, &result, &dl)
 			Expect(repoClient.Close()).Should(BeNil())
 		})
 		It("Should return binary artifacts present at commit in source code", func() {
@@ -147,7 +147,7 @@ var _ = Describe("E2E TEST:"+checks.CheckBinaryArtifacts, func() {
 			repo, err := githubrepo.MakeGithubRepo("ossf-tests/scorecard-check-binary-artifacts-e2e-4-binaries")
 			Expect(err).Should(BeNil())
 			repoClient := githubrepo.CreateGithubRepoClient(context.Background(), logger)
-			err = repoClient.InitRepo(repo, "d994b3e1a8912283f9958a7c1e0aa480ca24a7ce")
+			err = repoClient.InitRepo(repo, "d994b3e1a8912283f9958a7c1e0aa480ca24a7ce", 0)
 			Expect(err).Should(BeNil())
 
 			req := checker.CheckRequest{
@@ -157,7 +157,7 @@ var _ = Describe("E2E TEST:"+checks.CheckBinaryArtifacts, func() {
 				Dlogger:    &dl,
 			}
 			// TODO: upload real binaries to the repo.
-			// Existing binaries only contain SCII characters and are ignored.
+			// Existing binaries only contain ASCII characters and are ignored.
 			expected := scut.TestReturn{
 				Error:         nil,
 				Score:         checker.MaxResultScore,
@@ -167,7 +167,7 @@ var _ = Describe("E2E TEST:"+checks.CheckBinaryArtifacts, func() {
 			}
 			result := checks.BinaryArtifacts(&req)
 			// New version.
-			Expect(scut.ValidateTestReturn(nil, "binary artifacts", &expected, &result, &dl)).Should(BeTrue())
+			scut.ValidateTestReturn(GinkgoTB(), "binary artifacts", &expected, &result, &dl)
 			Expect(repoClient.Close()).Should(BeNil())
 		})
 		It("Should return binary artifacts present at commit in source code when using local repoClient", func() {
@@ -186,7 +186,7 @@ var _ = Describe("E2E TEST:"+checks.CheckBinaryArtifacts, func() {
 			Expect(err).Should(BeNil())
 
 			x := localdir.CreateLocalDirClient(context.Background(), logger)
-			err = x.InitRepo(repo, clients.HeadSHA)
+			err = x.InitRepo(repo, clients.HeadSHA, 0)
 			Expect(err).Should(BeNil())
 
 			req := checker.CheckRequest{
@@ -206,7 +206,7 @@ var _ = Describe("E2E TEST:"+checks.CheckBinaryArtifacts, func() {
 			}
 			result := checks.BinaryArtifacts(&req)
 			// New version.
-			Expect(scut.ValidateTestReturn(nil, "binary artifacts", &expected, &result, &dl)).Should(BeTrue())
+			scut.ValidateTestReturn(GinkgoTB(), "binary artifacts", &expected, &result, &dl)
 			Expect(x.Close()).Should(BeNil())
 		})
 	})

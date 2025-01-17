@@ -1,4 +1,4 @@
-// Copyright 2020 Security Scorecard Authors
+// Copyright 2020 OpenSSF Scorecard Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,8 +20,12 @@ import (
 	"strconv"
 	"time"
 
-	sce "github.com/ossf/scorecard/v4/errors"
-	"github.com/ossf/scorecard/v4/log"
+	"go.opencensus.io/stats"
+	"go.opencensus.io/tag"
+
+	githubstats "github.com/ossf/scorecard/v5/clients/githubrepo/stats"
+	sce "github.com/ossf/scorecard/v5/errors"
+	"github.com/ossf/scorecard/v5/log"
 )
 
 // MakeRateLimitedTransport returns a RoundTripper which rate limits GitHub requests.
@@ -32,27 +36,45 @@ func MakeRateLimitedTransport(innerTransport http.RoundTripper, logger *log.Logg
 	}
 }
 
-// rateLimitTransport is a rate-limit aware http.Transport for Github.
+// rateLimitTransport is a rate-limit aware http.Transport for GitHub.
 type rateLimitTransport struct {
 	logger         *log.Logger
 	innerTransport http.RoundTripper
 }
 
-// Roundtrip handles caching and ratelimiting of responses from GitHub.
+// RoundTrip handles caching and rate-limiting of responses from GitHub.
 func (gh *rateLimitTransport) RoundTrip(r *http.Request) (*http.Response, error) {
 	resp, err := gh.innerTransport.RoundTrip(r)
 	if err != nil {
 		return nil, sce.WithMessage(sce.ErrScorecardInternal, fmt.Sprintf("innerTransport.RoundTrip: %v", err))
 	}
+
+	retryValue := resp.Header.Get("Retry-After")
+	if retryAfter, err := strconv.Atoi(retryValue); err == nil { // if NO error
+		stats.Record(r.Context(), githubstats.RetryAfter.M(int64(retryAfter)))
+		duration := time.Duration(retryAfter) * time.Second
+		gh.logger.Info(fmt.Sprintf("Retry-After header set. Waiting %s to retry...", duration))
+		time.Sleep(duration)
+		gh.logger.Info("Retry-After header set. Retrying...")
+		return gh.RoundTrip(r)
+	}
+
 	rateLimit := resp.Header.Get("X-RateLimit-Remaining")
 	remaining, err := strconv.Atoi(rateLimit)
 	if err != nil {
+		//nolint:nilerr // just an error in metadata, response may still be useful?
 		return resp, nil
 	}
+	ctx, err := tag.New(r.Context(), tag.Upsert(githubstats.ResourceType, resp.Header.Get("X-RateLimit-Resource")))
+	if err != nil {
+		return nil, fmt.Errorf("error updating context: %w", err)
+	}
+	stats.Record(ctx, githubstats.RemainingTokens.M(int64(remaining)))
 
 	if remaining <= 0 {
 		reset, err := strconv.Atoi(resp.Header.Get("X-RateLimit-Reset"))
 		if err != nil {
+			//nolint:nilerr // just an error in metadata, response may still be useful?
 			return resp, nil
 		}
 

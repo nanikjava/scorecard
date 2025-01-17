@@ -1,4 +1,4 @@
-// Copyright 2020 Security Scorecard Authors
+// Copyright 2020 OpenSSF Scorecard Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,136 +19,156 @@ import (
 
 	"github.com/golang/mock/gomock"
 
-	"github.com/ossf/scorecard/v4/checker"
-	clients "github.com/ossf/scorecard/v4/clients"
-	mockrepo "github.com/ossf/scorecard/v4/clients/mockclients"
+	"github.com/ossf/scorecard/v5/checker"
+	clients "github.com/ossf/scorecard/v5/clients"
+	mockrepo "github.com/ossf/scorecard/v5/clients/mockclients"
 )
 
 func Test_checkDependencyFileExists(t *testing.T) {
 	t.Parallel()
-	//nolint
-	type args struct {
-		name string
-		data *[]checker.Tool
-	}
-	//nolint
+
 	tests := []struct {
 		name    string
-		args    args
+		path    string
 		want    bool
 		wantErr bool
 	}{
 		{
-			name: "check dependency file exists",
-			args: args{
-				name: ".github/dependabot.yml",
-				data: &[]checker.Tool{},
-			},
-			want:    false,
-			wantErr: false,
-		},
-		{
-			name: ".other",
-			args: args{
-				name: ".other",
-				data: &[]checker.Tool{},
-			},
+			name:    ".github/dependabot.yml",
+			path:    ".github/dependabot.yml",
 			want:    true,
 			wantErr: false,
 		},
 		{
-			name: ".github/renovate.json",
-			args: args{
-				name: ".github/renovate.json",
-				data: &[]checker.Tool{},
-			},
+			name:    ".github/dependabot.yaml",
+			path:    ".github/dependabot.yaml",
+			want:    true,
+			wantErr: false,
+		},
+		{
+			name:    ".other",
+			path:    ".other",
 			want:    false,
 			wantErr: false,
 		},
 		{
-			name: ".github/renovate.json5",
-			args: args{
-				name: ".github/renovate.json5",
-				data: &[]checker.Tool{},
-			},
-			want:    false,
+			name:    ".github/renovate.json",
+			path:    ".github/renovate.json",
+			want:    true,
 			wantErr: false,
 		},
 		{
-			name: ".renovaterc.json",
-			args: args{
-				name: ".renovaterc.json",
-				data: &[]checker.Tool{},
-			},
-			want:    false,
+			name:    ".github/renovate.json5",
+			path:    ".github/renovate.json5",
+			want:    true,
 			wantErr: false,
 		},
 		{
-			name: "renovate.json",
-			args: args{
-				name: "renovate.json",
-				data: &[]checker.Tool{},
-			},
-			want:    false,
+			name:    ".gitlab/renovate.json",
+			path:    ".gitlab/renovate.json",
+			want:    true,
 			wantErr: false,
 		},
 		{
-			name: "renovate.json5",
-			args: args{
-				name: "renovate.json5",
-				data: &[]checker.Tool{},
-			},
-			want:    false,
+			name:    ".gitlab/renovate.json5",
+			path:    ".gitlab/renovate.json5",
+			want:    true,
 			wantErr: false,
 		},
 		{
-			name: ".renovaterc",
-			args: args{
-				name: ".renovaterc",
-				data: &[]checker.Tool{},
-			},
-			want:    false,
+			name:    ".renovaterc.json",
+			path:    ".renovaterc.json",
+			want:    true,
 			wantErr: false,
 		},
 		{
-			name: ".pyup.yml",
-			args: args{
-				name: ".pyup.yml",
-				data: &[]checker.Tool{},
-			},
-			want:    false,
+			name:    "renovate.json",
+			path:    "renovate.json",
+			want:    true,
 			wantErr: false,
 		},
-        {
-            name: ".lift.toml",
-            args: args{
-                name: ".lift.toml",
-                data: &[]checker.Tool{},
-            },
-            want:    false,
-            wantErr: false,
-        },
-        {
-            name: ".lift/config.toml",
-            args: args{
-                name: ".lift/config.toml",
-                data: &[]checker.Tool{},
-            },
-            want:    false,
-            wantErr: false,
-        },
+		{
+			name:    "renovate.json5",
+			path:    "renovate.json5",
+			want:    true,
+			wantErr: false,
+		},
+		{
+			name:    ".renovaterc",
+			path:    ".renovaterc",
+			want:    true,
+			wantErr: false,
+		},
+		{
+			name:    ".pyup.yml",
+			path:    ".pyup.yml",
+			want:    true,
+			wantErr: false,
+		},
+		{
+			name:    ".scala-steward.conf",
+			path:    ".scala-steward.conf",
+			want:    true,
+			wantErr: false,
+		},
+		{
+			name:    "scala-steward.conf",
+			path:    "scala-steward.conf",
+			want:    true,
+			wantErr: false,
+		},
+		{
+			name:    ".github/.scala-steward.conf",
+			path:    ".github/.scala-steward.conf",
+			want:    true,
+			wantErr: false,
+		},
+		{
+			name:    ".github/scala-steward.conf",
+			path:    ".github/scala-steward.conf",
+			want:    true,
+			wantErr: false,
+		},
+		{
+			name:    ".config/.scala-steward.conf",
+			path:    ".config/.scala-steward.conf",
+			want:    true,
+			wantErr: false,
+		},
+		{
+			name:    ".config/scala-steward.conf",
+			path:    ".config/scala-steward.conf",
+			want:    true,
+			wantErr: false,
+		},
+		{
+			name:    ".lift.toml",
+			path:    ".lift.toml",
+			want:    false, // support removed
+			wantErr: false,
+		},
+		{
+			name:    ".lift/config.toml",
+			path:    ".lift/config.toml",
+			want:    false, // support removed
+			wantErr: false,
+		},
 	}
 	for _, tt := range tests {
 		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			got, err := checkDependencyFileExists(tt.args.name, tt.args.data)
+			results := []checker.Tool{}
+			cont, err := checkDependencyFileExists(tt.path, &results)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("checkDependencyFileExists() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			if got != tt.want {
-				t.Errorf("checkDependencyFileExists() = %v, want %v for test %v", got, tt.want, tt.name)
+			if !cont {
+				t.Errorf("continue is false for %v", tt.name)
+			}
+			if tt.want != (len(results) == 1) {
+				t.Errorf("checkDependencyFileExists() = %v, want %v for test %v", len(results), tt.want, tt.name)
 			}
 		})
 	}
@@ -157,7 +177,7 @@ func Test_checkDependencyFileExists(t *testing.T) {
 // TestDependencyUpdateTool tests the DependencyUpdateTool function.
 func TestDependencyUpdateTool(t *testing.T) {
 	t.Parallel()
-	//nolint
+	//nolint:govet
 	tests := []struct {
 		name              string
 		wantErr           bool
@@ -208,7 +228,8 @@ func TestDependencyUpdateTool(t *testing.T) {
 			want:              1,
 			CallSearchCommits: 1,
 			files:             []string{},
-			SearchCommits: []clients.Commit{{Committer: clients.User{ID: 111111111}},
+			SearchCommits: []clients.Commit{
+				{Committer: clients.User{ID: 111111111}},
 				{Committer: clients.User{ID: dependabotID}},
 			},
 		},

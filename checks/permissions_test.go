@@ -1,4 +1,4 @@
-// Copyright 2021 Security Scorecard Authors
+// Copyright 2021 OpenSSF Scorecard Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,20 +15,19 @@
 package checks
 
 import (
-	"fmt"
+	"io"
 	"os"
 	"strings"
 	"testing"
 
 	"github.com/golang/mock/gomock"
 
-	"github.com/ossf/scorecard/v4/checker"
-	"github.com/ossf/scorecard/v4/clients"
-	mockrepo "github.com/ossf/scorecard/v4/clients/mockclients"
-	scut "github.com/ossf/scorecard/v4/utests"
+	"github.com/ossf/scorecard/v5/checker"
+	"github.com/ossf/scorecard/v5/clients"
+	mockrepo "github.com/ossf/scorecard/v5/clients/mockclients"
+	scut "github.com/ossf/scorecard/v5/utests"
 )
 
-//nolint
 func TestGithubTokenPermissions(t *testing.T) {
 	t.Parallel()
 
@@ -44,7 +43,7 @@ func TestGithubTokenPermissions(t *testing.T) {
 				Error:         nil,
 				Score:         checker.MaxResultScore,
 				NumberOfWarn:  0,
-				NumberOfInfo:  1,
+				NumberOfInfo:  2,
 				NumberOfDebug: 5,
 			},
 		},
@@ -53,7 +52,7 @@ func TestGithubTokenPermissions(t *testing.T) {
 			filenames: []string{"./testdata/.github/workflows/github-workflow-permissions-run-no-codeql-write.yaml"},
 			expected: scut.TestReturn{
 				Error:         nil,
-				Score:         checker.MaxResultScore - 1,
+				Score:         checker.MaxResultScore,
 				NumberOfWarn:  1,
 				NumberOfInfo:  1,
 				NumberOfDebug: 4,
@@ -77,7 +76,7 @@ func TestGithubTokenPermissions(t *testing.T) {
 				Error:         nil,
 				Score:         checker.MaxResultScore,
 				NumberOfWarn:  0,
-				NumberOfInfo:  1,
+				NumberOfInfo:  2,
 				NumberOfDebug: 5,
 			},
 		},
@@ -99,7 +98,7 @@ func TestGithubTokenPermissions(t *testing.T) {
 				Error:         nil,
 				Score:         checker.MaxResultScore,
 				NumberOfWarn:  0,
-				NumberOfInfo:  1,
+				NumberOfInfo:  2,
 				NumberOfDebug: 5,
 			},
 		},
@@ -121,7 +120,7 @@ func TestGithubTokenPermissions(t *testing.T) {
 				Error:         nil,
 				Score:         checker.MaxResultScore,
 				NumberOfWarn:  0,
-				NumberOfInfo:  1,
+				NumberOfInfo:  2,
 				NumberOfDebug: 5,
 			},
 		},
@@ -132,7 +131,7 @@ func TestGithubTokenPermissions(t *testing.T) {
 				Error:         nil,
 				Score:         checker.MinResultScore,
 				NumberOfWarn:  1,
-				NumberOfInfo:  0,
+				NumberOfInfo:  1,
 				NumberOfDebug: 5,
 			},
 		},
@@ -143,7 +142,7 @@ func TestGithubTokenPermissions(t *testing.T) {
 				Error:         nil,
 				Score:         checker.MaxResultScore,
 				NumberOfWarn:  0,
-				NumberOfInfo:  1,
+				NumberOfInfo:  2,
 				NumberOfDebug: 6,
 			},
 		},
@@ -154,7 +153,7 @@ func TestGithubTokenPermissions(t *testing.T) {
 				Error:         nil,
 				Score:         checker.MaxResultScore,
 				NumberOfWarn:  0,
-				NumberOfInfo:  10,
+				NumberOfInfo:  11,
 				NumberOfDebug: 5,
 			},
 		},
@@ -165,7 +164,7 @@ func TestGithubTokenPermissions(t *testing.T) {
 				Error:         nil,
 				Score:         checker.MaxResultScore,
 				NumberOfWarn:  0,
-				NumberOfInfo:  10,
+				NumberOfInfo:  11,
 				NumberOfDebug: 5,
 			},
 		},
@@ -176,7 +175,7 @@ func TestGithubTokenPermissions(t *testing.T) {
 				Error:         nil,
 				Score:         checker.MaxResultScore,
 				NumberOfWarn:  0,
-				NumberOfInfo:  1,
+				NumberOfInfo:  2,
 				NumberOfDebug: 5,
 			},
 		},
@@ -187,7 +186,7 @@ func TestGithubTokenPermissions(t *testing.T) {
 				Error:         nil,
 				Score:         checker.MaxResultScore - 1,
 				NumberOfWarn:  2,
-				NumberOfInfo:  2,
+				NumberOfInfo:  3,
 				NumberOfDebug: 6,
 			},
 		},
@@ -198,7 +197,7 @@ func TestGithubTokenPermissions(t *testing.T) {
 				Error:         nil,
 				Score:         checker.MaxResultScore - 2,
 				NumberOfWarn:  2,
-				NumberOfInfo:  3,
+				NumberOfInfo:  4,
 				NumberOfDebug: 5,
 			},
 		},
@@ -209,7 +208,7 @@ func TestGithubTokenPermissions(t *testing.T) {
 				Error:         nil,
 				Score:         checker.MinResultScore,
 				NumberOfWarn:  1,
-				NumberOfInfo:  2,
+				NumberOfInfo:  3,
 				NumberOfDebug: 5,
 			},
 		},
@@ -220,7 +219,7 @@ func TestGithubTokenPermissions(t *testing.T) {
 				Error:         nil,
 				Score:         checker.MinResultScore,
 				NumberOfWarn:  1,
-				NumberOfInfo:  2,
+				NumberOfInfo:  3,
 				NumberOfDebug: 5,
 			},
 		},
@@ -231,7 +230,7 @@ func TestGithubTokenPermissions(t *testing.T) {
 				Error:         nil,
 				Score:         checker.MinResultScore,
 				NumberOfWarn:  1,
-				NumberOfInfo:  1,
+				NumberOfInfo:  2,
 				NumberOfDebug: 5,
 			},
 		},
@@ -240,7 +239,7 @@ func TestGithubTokenPermissions(t *testing.T) {
 			filenames: []string{"./testdata/script.sh"},
 			expected: scut.TestReturn{
 				Error:         nil,
-				Score:         checker.MaxResultScore,
+				Score:         checker.InconclusiveResultScore,
 				NumberOfWarn:  0,
 				NumberOfInfo:  0,
 				NumberOfDebug: 0,
@@ -264,7 +263,7 @@ func TestGithubTokenPermissions(t *testing.T) {
 				Error:         nil,
 				Score:         checker.MaxResultScore,
 				NumberOfWarn:  0,
-				NumberOfInfo:  1,
+				NumberOfInfo:  2,
 				NumberOfDebug: 4,
 			},
 		},
@@ -275,7 +274,40 @@ func TestGithubTokenPermissions(t *testing.T) {
 				Error:         nil,
 				Score:         checker.MaxResultScore,
 				NumberOfWarn:  0,
-				NumberOfInfo:  1,
+				NumberOfInfo:  2,
+				NumberOfDebug: 4,
+			},
+		},
+		{
+			name:      "release workflow contents write semantic-release with npx",
+			filenames: []string{"./testdata/.github/workflows/github-workflow-permissions-contents-writes-release-semantic-release.yaml"},
+			expected: scut.TestReturn{
+				Error:         nil,
+				Score:         checker.MaxResultScore,
+				NumberOfWarn:  0,
+				NumberOfInfo:  2,
+				NumberOfDebug: 4,
+			},
+		},
+		{
+			name:      "release workflow contents write semantic-release with yarn command",
+			filenames: []string{"./testdata/.github/workflows/github-workflow-permissions-contents-writes-release-semantic-release-yarn.yaml"},
+			expected: scut.TestReturn{
+				Error:         nil,
+				Score:         checker.MaxResultScore,
+				NumberOfWarn:  0,
+				NumberOfInfo:  2,
+				NumberOfDebug: 4,
+			},
+		},
+		{
+			name:      "release workflow contents write semantic-release with pnpm and dlx",
+			filenames: []string{"./testdata/.github/workflows/github-workflow-permissions-contents-writes-release-semantic-release-pnpm.yaml"},
+			expected: scut.TestReturn{
+				Error:         nil,
+				Score:         checker.MaxResultScore,
+				NumberOfWarn:  0,
+				NumberOfInfo:  2,
 				NumberOfDebug: 4,
 			},
 		},
@@ -286,18 +318,18 @@ func TestGithubTokenPermissions(t *testing.T) {
 				Error:         nil,
 				Score:         checker.MaxResultScore,
 				NumberOfWarn:  0,
-				NumberOfInfo:  1,
+				NumberOfInfo:  2,
 				NumberOfDebug: 5,
 			},
 		},
 		{
-			name:      "workflow jobs only",
+			name:      "penalize job-level read without top level permissions",
 			filenames: []string{"./testdata/.github/workflows/github-workflow-permissions-jobs-only.yaml"},
 			expected: scut.TestReturn{
 				Error:         nil,
-				Score:         9,
+				Score:         checker.MaxResultScore - 1,
 				NumberOfWarn:  1,
-				NumberOfInfo:  3,
+				NumberOfInfo:  4,
 				NumberOfDebug: 4,
 			},
 		},
@@ -306,10 +338,21 @@ func TestGithubTokenPermissions(t *testing.T) {
 			filenames: []string{"./testdata/.github/workflows/github-workflow-permissions-run-write-codeql-comment.yaml"},
 			expected: scut.TestReturn{
 				Error:         nil,
-				Score:         checker.MaxResultScore - 1,
+				Score:         checker.MaxResultScore,
 				NumberOfWarn:  1,
 				NumberOfInfo:  1,
 				NumberOfDebug: 4,
+			},
+		},
+		{
+			name:      "security-events write, known actions",
+			filenames: []string{"./testdata/.github/workflows/github-workflow-permissions-secevent-known-actions.yaml"},
+			expected: scut.TestReturn{
+				Error:         nil,
+				Score:         checker.MaxResultScore,
+				NumberOfWarn:  0,
+				NumberOfInfo:  2, // This is constant.
+				NumberOfDebug: 8, // This is 4 + (number of actions)
 			},
 		},
 		{
@@ -322,7 +365,7 @@ func TestGithubTokenPermissions(t *testing.T) {
 				Error:         nil,
 				Score:         checker.MaxResultScore - 1,
 				NumberOfWarn:  1,
-				NumberOfInfo:  2,
+				NumberOfInfo:  3,
 				NumberOfDebug: 9,
 			},
 		},
@@ -336,7 +379,7 @@ func TestGithubTokenPermissions(t *testing.T) {
 				Error:         nil,
 				Score:         checker.MinResultScore,
 				NumberOfWarn:  2,
-				NumberOfInfo:  1,
+				NumberOfInfo:  2,
 				NumberOfDebug: 9,
 			},
 		},
@@ -350,7 +393,7 @@ func TestGithubTokenPermissions(t *testing.T) {
 				Error:         nil,
 				Score:         checker.MinResultScore,
 				NumberOfWarn:  1,
-				NumberOfInfo:  1,
+				NumberOfInfo:  2,
 				NumberOfDebug: 10,
 			},
 		},
@@ -363,8 +406,21 @@ func TestGithubTokenPermissions(t *testing.T) {
 				Error:         nil,
 				Score:         checker.MaxResultScore,
 				NumberOfWarn:  0,
-				NumberOfInfo:  1,
+				NumberOfInfo:  2,
 				NumberOfDebug: 5,
+			},
+		},
+		{
+			name: "don't penalize job-level writes",
+			filenames: []string{
+				"./testdata/.github/workflows/github-workflow-permissions-run-multiple-writes.yaml",
+			},
+			expected: scut.TestReturn{
+				Error:         nil,
+				Score:         checker.MaxResultScore,
+				NumberOfWarn:  7, // number of job-level write permissions
+				NumberOfInfo:  1, // read-only top-level permissions
+				NumberOfDebug: 4, // This is 4 + (number of actions = 0)
 			},
 		},
 	}
@@ -375,7 +431,7 @@ func TestGithubTokenPermissions(t *testing.T) {
 
 			ctrl := gomock.NewController(t)
 			mockRepo := mockrepo.NewMockRepoClient(ctrl)
-			mockRepo.EXPECT().GetDefaultBranchName().Return("main", nil)
+			mockRepo.EXPECT().GetDefaultBranchName().Return("main", nil).AnyTimes()
 
 			main := "main"
 			mockRepo.EXPECT().URI().Return("github.com/ossf/scorecard").AnyTimes()
@@ -387,12 +443,8 @@ func TestGithubTokenPermissions(t *testing.T) {
 				}
 				return files, nil
 			}).AnyTimes()
-			mockRepo.EXPECT().GetFileContent(gomock.Any()).DoAndReturn(func(fn string) ([]byte, error) {
-				content, err := os.ReadFile("./testdata/" + fn)
-				if err != nil {
-					return content, fmt.Errorf("%w", err)
-				}
-				return content, nil
+			mockRepo.EXPECT().GetFileReader(gomock.Any()).DoAndReturn(func(fn string) (io.ReadCloser, error) {
+				return os.Open("./testdata/" + fn)
 			}).AnyTimes()
 			dl := scut.TestDetailLogger{}
 			c := checker.CheckRequest{
@@ -402,9 +454,7 @@ func TestGithubTokenPermissions(t *testing.T) {
 
 			res := TokenPermissions(&c)
 
-			if !scut.ValidateTestReturn(t, tt.name, &tt.expected, &res, &dl) {
-				t.Errorf("test failed: log message not present: %+v\n%+v", tt.expected, dl)
-			}
+			scut.ValidateTestReturn(t, tt.name, &tt.expected, &res, &dl)
 		})
 	}
 }
@@ -445,11 +495,6 @@ func TestGithubTokenPermissionsLineNumber(t *testing.T) {
 		tt := tt // Re-initializing variable so it is not changed while executing the closure below
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			content, err := os.ReadFile(tt.filename)
-			if err != nil {
-				t.Errorf("cannot read file: %v", err)
-			}
-
 			p := strings.Replace(tt.filename, "./testdata/", "", 1)
 			ctrl := gomock.NewController(t)
 			mockRepo := mockrepo.NewMockRepoClient(ctrl)
@@ -460,8 +505,8 @@ func TestGithubTokenPermissionsLineNumber(t *testing.T) {
 			mockRepo.EXPECT().ListFiles(gomock.Any()).DoAndReturn(func(predicate func(string) (bool, error)) ([]string, error) {
 				return []string{p}, nil
 			}).AnyTimes()
-			mockRepo.EXPECT().GetFileContent(gomock.Any()).DoAndReturn(func(fn string) ([]byte, error) {
-				return content, nil
+			mockRepo.EXPECT().GetFileReader(gomock.Any()).DoAndReturn(func(fn string) (io.ReadCloser, error) {
+				return os.Open(tt.filename)
 			}).AnyTimes()
 			dl := scut.TestDetailLogger{}
 			c := checker.CheckRequest{
@@ -473,7 +518,11 @@ func TestGithubTokenPermissionsLineNumber(t *testing.T) {
 
 			for _, expectedLog := range tt.expected {
 				isExpectedLog := func(logMessage checker.LogMessage, logType checker.DetailType) bool {
-					return logMessage.Offset == expectedLog.lineNumber && logMessage.Path == p &&
+					return logMessage.Finding != nil &&
+						logMessage.Finding.Location != nil &&
+						logMessage.Finding.Location.LineStart != nil &&
+						*logMessage.Finding.Location.LineStart == expectedLog.lineNumber &&
+						logMessage.Finding.Location.Path == p &&
 						logType == checker.DetailWarn
 				}
 				if !scut.ValidateLogMessage(isExpectedLog, &dl) {

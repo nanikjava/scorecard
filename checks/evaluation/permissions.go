@@ -1,4 +1,4 @@
-// Copyright 2021 Security Scorecard Authors
+// Copyright 2021 OpenSSF Scorecard Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,273 +17,313 @@ package evaluation
 import (
 	"fmt"
 
-	"github.com/ossf/scorecard/v4/checker"
-	sce "github.com/ossf/scorecard/v4/errors"
-	"github.com/ossf/scorecard/v4/remediation"
+	"github.com/ossf/scorecard/v5/checker"
+	sce "github.com/ossf/scorecard/v5/errors"
+	"github.com/ossf/scorecard/v5/finding"
+	"github.com/ossf/scorecard/v5/probes/hasNoGitHubWorkflowPermissionUnknown"
+	"github.com/ossf/scorecard/v5/probes/jobLevelPermissions"
+	"github.com/ossf/scorecard/v5/probes/topLevelPermissions"
 )
 
-type permissions struct {
-	topLevelWritePermissions map[string]bool
-	jobLevelWritePermissions map[string]bool
-}
-
 // TokenPermissions applies the score policy for the Token-Permissions check.
-func TokenPermissions(name string, c *checker.CheckRequest, r *checker.TokenPermissionsData) checker.CheckResult {
-	if r == nil {
-		e := sce.WithMessage(sce.ErrScorecardInternal, "empty raw data")
+//
+//nolint:gocognit
+func TokenPermissions(name string,
+	findings []finding.Finding,
+	dl checker.DetailLogger,
+) checker.CheckResult {
+	expectedProbes := []string{
+		hasNoGitHubWorkflowPermissionUnknown.Probe,
+		jobLevelPermissions.Probe,
+		topLevelPermissions.Probe,
+	}
+	if !finding.UniqueProbesEqual(findings, expectedProbes) {
+		e := sce.WithMessage(sce.ErrScorecardInternal, "invalid probe results")
 		return checker.CreateRuntimeErrorResult(name, e)
 	}
-
-	score, err := applyScorePolicy(r, c)
-	if err != nil {
-		return checker.CreateRuntimeErrorResult(name, err)
-	}
-
-	if score != checker.MaxResultScore {
-		return checker.CreateResultWithScore(name,
-			"non read-only tokens detected in GitHub workflows", score)
-	}
-
-	return checker.CreateMaxScoreResult(name,
-		"tokens are read-only in GitHub workflows")
-}
-
-func applyScorePolicy(results *checker.TokenPermissionsData, c *checker.CheckRequest) (int, error) {
-	// See list https://github.blog/changelog/2021-04-20-github-actions-control-permissions-for-github_token/.
-	// Note: there are legitimate reasons to use some of the permissions like checks, deployments, etc.
-	// in CI/CD systems https://docs.travis-ci.com/user/github-oauth-scopes/.
-
-	hm := make(map[string]permissions)
-	dl := c.Dlogger
-	//nolint:errcheck
-	remediaitonMetadata, _ := remediation.New(c)
-
-	for _, r := range results.TokenPermissions {
-		var msg checker.LogMessage
-
-		if r.File != nil {
-			msg.Path = r.File.Path
-			msg.Offset = r.File.Offset
-			msg.Type = r.File.Type
-			msg.Snippet = r.File.Snippet
-
-			if msg.Path != "" {
-				msg.Remediation = remediaitonMetadata.CreateWorkflowPermissionRemediation(r.File.Path)
-			}
-		}
-
-		text, err := createMessage(r)
-		if err != nil {
-			return checker.MinResultScore, err
-		}
-		msg.Text = text
-
-		switch r.Type {
-		case checker.PermissionLevelNone, checker.PermissionLevelRead:
-			dl.Info(&msg)
-		case checker.PermissionLevelUnknown:
-			dl.Debug(&msg)
-
-		case checker.PermissionLevelUndeclared:
-			if r.LocationType == nil {
-				return checker.InconclusiveResultScore,
-					sce.WithMessage(sce.ErrScorecardInternal, "locationType is nil")
-			}
-
-			// We warn only for top-level.
-			if *r.LocationType == checker.PermissionLocationTop {
-				dl.Warn(&msg)
-			} else {
-				dl.Debug(&msg)
-			}
-
-			// Group results by workflow name for score computation.
-			if err := updateWorkflowHashMap(hm, r); err != nil {
-				return checker.InconclusiveResultScore, err
-			}
-
-		case checker.PermissionLevelWrite:
-			dl.Warn(&msg)
-
-			// Group results by workflow name for score computation.
-			if err := updateWorkflowHashMap(hm, r); err != nil {
-				return checker.InconclusiveResultScore, err
-			}
-		}
-	}
-
-	return calculateScore(hm), nil
-}
-
-func recordPermissionWrite(hm map[string]permissions, path string,
-	locType checker.PermissionLocation, permName *string,
-) {
-	if _, exists := hm[path]; !exists {
-		hm[path] = permissions{
-			topLevelWritePermissions: make(map[string]bool),
-			jobLevelWritePermissions: make(map[string]bool),
-		}
-	}
-
-	// Select the hash map to update.
-	m := hm[path].jobLevelWritePermissions
-	if locType == checker.PermissionLocationTop {
-		m = hm[path].topLevelWritePermissions
-	}
-
-	// Set the permission name to record.
-	name := "all"
-	if permName != nil && *permName != "" {
-		name = *permName
-	}
-	m[name] = true
-}
-
-func updateWorkflowHashMap(hm map[string]permissions, t checker.TokenPermission) error {
-	if t.LocationType == nil {
-		return sce.WithMessage(sce.ErrScorecardInternal, "locationType is nil")
-	}
-
-	if t.File == nil || t.File.Path == "" {
-		return sce.WithMessage(sce.ErrScorecardInternal, "path is not set")
-	}
-
-	if t.Type != checker.PermissionLevelWrite &&
-		t.Type != checker.PermissionLevelUndeclared {
-		return nil
-	}
-
-	recordPermissionWrite(hm, t.File.Path, *t.LocationType, t.Name)
-
-	return nil
-}
-
-func createMessage(t checker.TokenPermission) (string, error) {
-	// By default, use the message already present.
-	if t.Msg != nil {
-		return *t.Msg, nil
-	}
-
-	// Ensure there's no implementation bug.
-	if t.LocationType == nil {
-		return "", sce.WithMessage(sce.ErrScorecardInternal, "locationType is nil")
-	}
-
-	// Use a different message depending on the type.
-	if t.Type == checker.PermissionLevelUndeclared {
-		return fmt.Sprintf("no %s permission defined", *t.LocationType), nil
-	}
-
-	if t.Value == nil {
-		return "", sce.WithMessage(sce.ErrScorecardInternal, "Value fields is nil")
-	}
-
-	if t.Name == nil {
-		return fmt.Sprintf("%s permissions set to '%v'", *t.LocationType,
-			*t.Value), nil
-	}
-
-	return fmt.Sprintf("%s '%v' permission set to '%v'", *t.LocationType,
-		*t.Name, *t.Value), nil
-}
-
-// Calculate the score.
-func calculateScore(result map[string]permissions) int {
-	// See list https://github.blog/changelog/2021-04-20-github-actions-control-permissions-for-github_token/.
-	// Note: there are legitimate reasons to use some of the permissions like checks, deployments, etc.
-	// in CI/CD systems https://docs.travis-ci.com/user/github-oauth-scopes/.
 
 	// Start with a perfect score.
 	score := float32(checker.MaxResultScore)
 
-	// Retrieve the overall results.
-	for _, perms := range result {
-		// If no top level permissions are defined, all the permissions
-		// are enabled by default. In this case,
-		if permissionIsPresentInTopLevel(perms, "all") {
-			if permissionIsPresentInRunLevel(perms, "all") {
-				// ... give lowest score if no run level permissions are defined either.
-				return checker.MinResultScore
+	// hasWritePermissions is a map that holds information about the
+	// workflows in the project that have write permissions. It holds
+	// information about the write permissions of jobs and at the
+	// top-level too. The inner map (map[string]bool) has the
+	// workflow path as its key, and the value determines whether
+	// that workflow has write permissions at either "job" or "top"
+	// level.
+	hasWritePermissions := make(map[string]map[string]bool)
+	hasWritePermissions["jobLevel"] = make(map[string]bool)
+	hasWritePermissions["topLevel"] = make(map[string]bool)
+
+	// undeclaredPermissions is a map that holds information about the
+	// workflows in the project that have undeclared permissions. It holds
+	// information about the undeclared permissions of jobs and at the
+	// top-level too. The inner map (map[string]bool) has the
+	// workflow path as its key, and the value determines whether
+	// that workflow has undeclared permissions at either "job" or "top"
+	// level.
+	undeclaredPermissions := make(map[string]map[string]bool)
+	undeclaredPermissions["jobLevel"] = make(map[string]bool)
+	undeclaredPermissions["topLevel"] = make(map[string]bool)
+
+	for i := range findings {
+		f := &findings[i]
+
+		// Log workflows with "none" permissions
+		if permissionLevel(f) == checker.PermissionLevelNone {
+			dl.Info(&checker.LogMessage{
+				Finding: f,
+			})
+			continue
+		}
+
+		// Log workflows with "read" permissions
+		if permissionLevel(f) == checker.PermissionLevelRead {
+			dl.Info(&checker.LogMessage{
+				Finding: f,
+			})
+		}
+
+		if isBothUndeclaredAndNotAvailableOrNotApplicable(f, dl) {
+			return checker.CreateInconclusiveResult(name, "Token permissions are not available")
+		}
+
+		// If there are no TokenPermissions
+		if f.Outcome == finding.OutcomeNotApplicable {
+			return checker.CreateInconclusiveResult(name, "No tokens found")
+		}
+
+		if f.Outcome != finding.OutcomeFalse {
+			continue
+		}
+		if f.Location == nil {
+			continue
+		}
+		fPath := f.Location.Path
+
+		addProbeToMaps(fPath, undeclaredPermissions, hasWritePermissions)
+
+		if permissionLevel(f) == checker.PermissionLevelUndeclared {
+			score = updateScoreAndMapFromUndeclared(undeclaredPermissions,
+				hasWritePermissions, f, score, dl)
+			continue
+		}
+
+		switch f.Probe {
+		case hasNoGitHubWorkflowPermissionUnknown.Probe:
+			dl.Debug(&checker.LogMessage{
+				Finding: f,
+			})
+		case topLevelPermissions.Probe:
+			if permissionLevel(f) != checker.PermissionLevelWrite {
+				continue
 			}
-			// ... reduce score if run level permissions are defined.
+			hasWritePermissions["topLevel"][fPath] = true
+
+			if !isWriteAll(f) {
+				score -= reduceBy(f, dl)
+				continue
+			}
+
+			dl.Warn(&checker.LogMessage{
+				Finding: f,
+			})
+			// "all" is evaluated separately. If the project also has write permissions
+			// or undeclared permissions at the job level, this is particularly bad.
+			if hasWritePermissions["jobLevel"][fPath] ||
+				undeclaredPermissions["jobLevel"][fPath] {
+				return checker.CreateMinScoreResult(name, "detected GitHub workflow tokens with excessive permissions")
+			}
 			score -= 0.5
-		}
+		case jobLevelPermissions.Probe:
+			if permissionLevel(f) != checker.PermissionLevelWrite {
+				continue
+			}
 
-		// status: https://docs.github.com/en/rest/reference/repos#statuses.
-		// May allow an attacker to change the result of pre-submit and get a PR merged.
-		// Low risk: -0.5.
-		if permissionIsPresent(perms, "statuses") {
-			score -= 0.5
-		}
+			dl.Warn(&checker.LogMessage{
+				Finding: f,
+			})
+			hasWritePermissions["jobLevel"][fPath] = true
 
-		// checks.
-		// May allow an attacker to edit checks to remove pre-submit and introduce a bug.
-		// Low risk: -0.5.
-		if permissionIsPresent(perms, "checks") {
-			score -= 0.5
-		}
-
-		// secEvents.
-		// May allow attacker to read vuln reports before patch available.
-		// Low risk: -1
-		if permissionIsPresent(perms, "security-events") {
-			score--
-		}
-
-		// deployments: https://docs.github.com/en/rest/reference/repos#deployments.
-		// May allow attacker to charge repo owner by triggering VM runs,
-		// and tiny chance an attacker can trigger a remote
-		// service with code they own if server accepts code/location var unsanitized.
-		// Low risk: -1
-		if permissionIsPresent(perms, "deployments") {
-			score--
-		}
-
-		// contents.
-		// Allows attacker to commit unreviewed code.
-		// High risk: -10
-		if permissionIsPresentInTopLevel(perms, "contents") {
-			score -= checker.MaxResultScore
-		}
-
-		// packages: https://docs.github.com/en/packages/learn-github-packages/about-permissions-for-github-packages.
-		// Allows attacker to publish packages.
-		// High risk: -10
-		if permissionIsPresentInTopLevel(perms, "packages") {
-			score -= checker.MaxResultScore
-		}
-
-		// actions.
-		// May allow an attacker to steal GitHub secrets by approving to run an action that needs approval.
-		// High risk: -10
-		if permissionIsPresentInTopLevel(perms, "actions") {
-			score -= checker.MaxResultScore
-		}
-
-		if score < checker.MinResultScore {
-			break
+			// If project has "all" writepermissions too at top level, this is
+			// particularly bad.
+			if hasWritePermissions["topLevel"][fPath] {
+				score = checker.MinResultScore
+				break
+			}
+			// If project has not declared permissions at top level::
+			if undeclaredPermissions["topLevel"][fPath] {
+				score -= 0.5
+			}
+		default:
+			continue
 		}
 	}
-
-	// We're done, calculate the final score.
 	if score < checker.MinResultScore {
-		return checker.MinResultScore
+		score = checker.MinResultScore
 	}
 
-	return int(score)
+	logIfNoWritePermissionsFound(hasWritePermissions, dl)
+
+	if score != checker.MaxResultScore {
+		return checker.CreateResultWithScore(name,
+			"detected GitHub workflow tokens with excessive permissions", int(score))
+	}
+
+	return checker.CreateMaxScoreResult(name,
+		"GitHub workflow tokens follow principle of least privilege")
 }
 
-func permissionIsPresent(perms permissions, name string) bool {
-	return permissionIsPresentInTopLevel(perms, name) ||
-		permissionIsPresentInRunLevel(perms, name)
+func logIfNoWritePermissionsFound(hasWritePermissions map[string]map[string]bool,
+	dl checker.DetailLogger,
+) {
+	foundWritePermissions := false
+	for _, isWritePermission := range hasWritePermissions["jobLevel"] {
+		if isWritePermission {
+			foundWritePermissions = true
+		}
+	}
+	if !foundWritePermissions {
+		text := fmt.Sprintf("no %s write permissions found", checker.PermissionLocationJob)
+		dl.Info(&checker.LogMessage{
+			Text: text,
+		})
+	}
 }
 
-func permissionIsPresentInTopLevel(perms permissions, name string) bool {
-	_, ok := perms.topLevelWritePermissions[name]
-	return ok
+func updateScoreFromUndeclaredJob(undeclaredPermissions map[string]map[string]bool,
+	hasWritePermissions map[string]map[string]bool,
+	fPath string,
+	score float32,
+) float32 {
+	if hasWritePermissions["topLevel"][fPath] ||
+		undeclaredPermissions["topLevel"][fPath] {
+		score = checker.MinResultScore
+	}
+	return score
 }
 
-func permissionIsPresentInRunLevel(perms permissions, name string) bool {
-	_, ok := perms.jobLevelWritePermissions[name]
-	return ok
+func updateScoreFromUndeclaredTop(undeclaredPermissions map[string]map[string]bool,
+	fPath string,
+	score float32,
+) float32 {
+	if undeclaredPermissions["jobLevel"][fPath] {
+		score = checker.MinResultScore
+	} else {
+		score -= 0.5
+	}
+	return score
+}
+
+func isBothUndeclaredAndNotAvailableOrNotApplicable(f *finding.Finding, dl checker.DetailLogger) bool {
+	if permissionLevel(f) == checker.PermissionLevelUndeclared {
+		if f.Outcome == finding.OutcomeNotAvailable {
+			return true
+		} else if f.Outcome == finding.OutcomeNotApplicable {
+			dl.Debug(&checker.LogMessage{
+				Finding: f,
+			})
+			return false
+		}
+	}
+	return false
+}
+
+func updateScoreAndMapFromUndeclared(undeclaredPermissions map[string]map[string]bool,
+	hasWritePermissions map[string]map[string]bool,
+	f *finding.Finding,
+	score float32, dl checker.DetailLogger,
+) float32 {
+	fPath := f.Location.Path
+	if f.Probe == jobLevelPermissions.Probe {
+		dl.Debug(&checker.LogMessage{
+			Finding: f,
+		})
+		undeclaredPermissions["jobLevel"][fPath] = true
+		score = updateScoreFromUndeclaredJob(undeclaredPermissions,
+			hasWritePermissions,
+			fPath,
+			score)
+	} else if f.Probe == topLevelPermissions.Probe {
+		dl.Warn(&checker.LogMessage{
+			Finding: f,
+		})
+		undeclaredPermissions["topLevel"][fPath] = true
+		score = updateScoreFromUndeclaredTop(undeclaredPermissions,
+			fPath,
+			score)
+	}
+
+	return score
+}
+
+func addProbeToMaps(fPath string, hasWritePermissions, undeclaredPermissions map[string]map[string]bool) {
+	if _, ok := undeclaredPermissions["jobLevel"][fPath]; !ok {
+		undeclaredPermissions["jobLevel"][fPath] = false
+	}
+	if _, ok := undeclaredPermissions["topLevel"][fPath]; !ok {
+		undeclaredPermissions["topLevel"][fPath] = false
+	}
+	if _, ok := hasWritePermissions["jobLevel"][fPath]; !ok {
+		hasWritePermissions["jobLevel"][fPath] = false
+	}
+	if _, ok := hasWritePermissions["topLevel"][fPath]; !ok {
+		hasWritePermissions["topLevel"][fPath] = false
+	}
+}
+
+func reduceBy(f *finding.Finding, dl checker.DetailLogger) float32 {
+	if permissionLevel(f) != checker.PermissionLevelWrite {
+		return 0
+	}
+	switch tokenName(f) {
+	case "checks", "statuses":
+		dl.Warn(&checker.LogMessage{
+			Finding: f,
+		})
+		return 0.5
+	case "contents", "packages", "actions":
+		dl.Warn(&checker.LogMessage{
+			Finding: f,
+		})
+		return checker.MaxResultScore
+	case "deployments", "security-events":
+		dl.Warn(&checker.LogMessage{
+			Finding: f,
+		})
+		return 1.0
+	}
+	return 0
+}
+
+func isWriteAll(f *finding.Finding) bool {
+	token := tokenName(f)
+	return (token == "all" || token == "write-all")
+}
+
+func permissionLevel(f *finding.Finding) checker.PermissionLevel {
+	var key string
+	// these values should be the same, but better safe than sorry
+	switch f.Probe {
+	case jobLevelPermissions.Probe:
+		key = jobLevelPermissions.PermissionLevelKey
+	case topLevelPermissions.Probe:
+		key = topLevelPermissions.PermissionLevelKey
+	default:
+	}
+	return checker.PermissionLevel(f.Values[key])
+}
+
+func tokenName(f *finding.Finding) string {
+	var key string
+	// these values should be the same, but better safe than sorry
+	switch f.Probe {
+	case jobLevelPermissions.Probe:
+		key = jobLevelPermissions.TokenNameKey
+	case topLevelPermissions.Probe:
+		key = topLevelPermissions.TokenNameKey
+	default:
+	}
+	return f.Values[key]
 }

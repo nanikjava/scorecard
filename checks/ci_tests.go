@@ -1,4 +1,4 @@
-// Copyright 2020 Security Scorecard Authors
+// Copyright 2020 OpenSSF Scorecard Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,13 +15,14 @@
 package checks
 
 import (
-	"github.com/ossf/scorecard/v4/checker"
-	"github.com/ossf/scorecard/v4/checks/evaluation"
-	"github.com/ossf/scorecard/v4/checks/raw"
-	sce "github.com/ossf/scorecard/v4/errors"
+	"github.com/ossf/scorecard/v5/checker"
+	"github.com/ossf/scorecard/v5/checks/evaluation"
+	"github.com/ossf/scorecard/v5/checks/raw"
+	sce "github.com/ossf/scorecard/v5/errors"
+	"github.com/ossf/scorecard/v5/probes"
+	"github.com/ossf/scorecard/v5/probes/zrunner"
 )
 
-// CheckCodeReview is the registered name for DoesCodeReview.
 const CheckCITests = "CI-Tests"
 
 //nolint:gochecknoinits
@@ -35,19 +36,24 @@ func init() {
 	}
 }
 
-// CodeReview will check if the maintainers perform code review.
 func CITests(c *checker.CheckRequest) checker.CheckResult {
 	rawData, err := raw.CITests(c.RepoClient)
 	if err != nil {
 		e := sce.WithMessage(sce.ErrScorecardInternal, err.Error())
-		return checker.CreateRuntimeErrorResult(CheckCodeReview, e)
+		return checker.CreateRuntimeErrorResult(CheckCITests, e)
 	}
 
-	// Return raw results.
-	if c.RawResults != nil {
-		c.RawResults.CITestResults = rawData
+	pRawResults := getRawResults(c)
+	pRawResults.CITestResults = rawData
+
+	// Evaluate the probes.
+	findings, err := zrunner.Run(pRawResults, probes.CITests)
+	if err != nil {
+		e := sce.WithMessage(sce.ErrScorecardInternal, err.Error())
+		return checker.CreateRuntimeErrorResult(CheckCITests, e)
 	}
 
-	// Return the score evaluation.
-	return evaluation.CITests(CheckCITests, &rawData, c.Dlogger)
+	ret := evaluation.CITests(CheckCITests, findings, c.Dlogger)
+	ret.Findings = findings
+	return ret
 }

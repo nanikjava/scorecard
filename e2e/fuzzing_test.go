@@ -1,4 +1,4 @@
-// Copyright 2021 Security Scorecard Authors
+// Copyright 2021 OpenSSF Scorecard Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,25 +20,28 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"github.com/ossf/scorecard/v4/checker"
-	"github.com/ossf/scorecard/v4/checks"
-	"github.com/ossf/scorecard/v4/checks/raw"
-	"github.com/ossf/scorecard/v4/clients"
-	"github.com/ossf/scorecard/v4/clients/githubrepo"
-	scut "github.com/ossf/scorecard/v4/utests"
+	"github.com/ossf/scorecard/v5/checker"
+	"github.com/ossf/scorecard/v5/checks"
+	"github.com/ossf/scorecard/v5/checks/raw"
+	"github.com/ossf/scorecard/v5/clients"
+	"github.com/ossf/scorecard/v5/clients/githubrepo"
+	"github.com/ossf/scorecard/v5/clients/gitlabrepo"
+	"github.com/ossf/scorecard/v5/clients/ossfuzz"
+	scut "github.com/ossf/scorecard/v5/utests"
 )
 
 var _ = Describe("E2E TEST:"+checks.CheckFuzzing, func() {
 	Context("E2E TEST:Validating use of fuzzing tools", func() {
 		It("Should return use of OSS-Fuzz", func() {
 			dl := scut.TestDetailLogger{}
-			repo, err := githubrepo.MakeGithubRepo("tensorflow/tensorflow")
+			repo, err := githubrepo.MakeGithubRepo("ossf/scorecard-webapp")
 			Expect(err).Should(BeNil())
 			repoClient := githubrepo.CreateGithubRepoClient(context.Background(), logger)
-			err = repoClient.InitRepo(repo, clients.HeadSHA)
+			err = repoClient.InitRepo(repo, clients.HeadSHA, 0)
 			Expect(err).Should(BeNil())
-			ossFuzzRepoClient, err := githubrepo.CreateOssFuzzRepoClient(context.Background(), logger)
+			ossFuzzRepoClient, err := ossfuzz.CreateOSSFuzzClientEager(ossfuzz.StatusURL)
 			Expect(err).Should(BeNil())
+
 			req := checker.CheckRequest{
 				Ctx:         context.Background(),
 				RepoClient:  repoClient,
@@ -50,11 +53,43 @@ var _ = Describe("E2E TEST:"+checks.CheckFuzzing, func() {
 				Error:         nil,
 				Score:         checker.MaxResultScore,
 				NumberOfWarn:  0,
-				NumberOfInfo:  0,
+				NumberOfInfo:  3, // 1 for OSSFuzz, 2 for go native fuzzing
 				NumberOfDebug: 0,
 			}
 			result := checks.Fuzzing(&req)
-			Expect(scut.ValidateTestReturn(nil, "use fuzzing", &expected, &result, &dl)).Should(BeTrue())
+			scut.ValidateTestReturn(GinkgoTB(), "use fuzzing", &expected, &result, &dl)
+			Expect(repoClient.Close()).Should(BeNil())
+			Expect(ossFuzzRepoClient.Close()).Should(BeNil())
+		})
+		It("Should return use of OSS-Fuzz - GitLab", func() {
+			dl := scut.TestDetailLogger{}
+			repo, err := gitlabrepo.MakeGitlabRepo("gitlab.com/libtiff/libtiff")
+			Expect(err).Should(BeNil())
+
+			repoClient, err := gitlabrepo.CreateGitlabClient(context.Background(), repo.Host())
+			Expect(err).Should(BeNil())
+			err = repoClient.InitRepo(repo, clients.HeadSHA, 0)
+
+			Expect(err).Should(BeNil())
+			ossFuzzRepoClient, err := ossfuzz.CreateOSSFuzzClientEager(ossfuzz.StatusURL)
+			Expect(err).Should(BeNil())
+
+			req := checker.CheckRequest{
+				Ctx:         context.Background(),
+				RepoClient:  repoClient,
+				OssFuzzRepo: ossFuzzRepoClient,
+				Repo:        repo,
+				Dlogger:     &dl,
+			}
+			expected := scut.TestReturn{
+				Error:         nil,
+				Score:         checker.MaxResultScore,
+				NumberOfWarn:  0,
+				NumberOfInfo:  1,
+				NumberOfDebug: 0,
+			}
+			result := checks.Fuzzing(&req)
+			scut.ValidateTestReturn(GinkgoTB(), "use fuzzing", &expected, &result, &dl)
 			Expect(repoClient.Close()).Should(BeNil())
 			Expect(ossFuzzRepoClient.Close()).Should(BeNil())
 		})
@@ -63,10 +98,11 @@ var _ = Describe("E2E TEST:"+checks.CheckFuzzing, func() {
 			repo, err := githubrepo.MakeGithubRepo("ossf-tests/scorecard-check-fuzzing-cflite")
 			Expect(err).Should(BeNil())
 			repoClient := githubrepo.CreateGithubRepoClient(context.Background(), logger)
-			err = repoClient.InitRepo(repo, clients.HeadSHA)
+			err = repoClient.InitRepo(repo, clients.HeadSHA, 0)
 			Expect(err).Should(BeNil())
-			ossFuzzRepoClient, err := githubrepo.CreateOssFuzzRepoClient(context.Background(), logger)
+			ossFuzzRepoClient, err := ossfuzz.CreateOSSFuzzClientEager(ossfuzz.StatusURL)
 			Expect(err).Should(BeNil())
+
 			req := checker.CheckRequest{
 				Ctx:         context.Background(),
 				RepoClient:  repoClient,
@@ -78,11 +114,11 @@ var _ = Describe("E2E TEST:"+checks.CheckFuzzing, func() {
 				Error:         nil,
 				Score:         checker.MaxResultScore,
 				NumberOfWarn:  0,
-				NumberOfInfo:  0,
+				NumberOfInfo:  1,
 				NumberOfDebug: 0,
 			}
 			result := checks.Fuzzing(&req)
-			Expect(scut.ValidateTestReturn(nil, "use fuzzing", &expected, &result, &dl)).Should(BeTrue())
+			scut.ValidateTestReturn(GinkgoTB(), "use fuzzing", &expected, &result, &dl)
 			Expect(repoClient.Close()).Should(BeNil())
 			Expect(ossFuzzRepoClient.Close()).Should(BeNil())
 		})
@@ -91,10 +127,11 @@ var _ = Describe("E2E TEST:"+checks.CheckFuzzing, func() {
 			repo, err := githubrepo.MakeGithubRepo("ossf-tests/scorecard-check-fuzzing-golang")
 			Expect(err).Should(BeNil())
 			repoClient := githubrepo.CreateGithubRepoClient(context.Background(), logger)
-			err = repoClient.InitRepo(repo, clients.HeadSHA)
+			err = repoClient.InitRepo(repo, clients.HeadSHA, 0)
 			Expect(err).Should(BeNil())
-			ossFuzzRepoClient, err := githubrepo.CreateOssFuzzRepoClient(context.Background(), logger)
+			ossFuzzRepoClient, err := ossfuzz.CreateOSSFuzzClientEager(ossfuzz.StatusURL)
 			Expect(err).Should(BeNil())
+
 			req := checker.CheckRequest{
 				Ctx:         context.Background(),
 				RepoClient:  repoClient,
@@ -110,7 +147,7 @@ var _ = Describe("E2E TEST:"+checks.CheckFuzzing, func() {
 				NumberOfDebug: 0,
 			}
 			result := checks.Fuzzing(&req)
-			Expect(scut.ValidateTestReturn(nil, "use fuzzing", &expected, &result, &dl)).Should(BeTrue())
+			scut.ValidateTestReturn(GinkgoTB(), "use fuzzing", &expected, &result, &dl)
 			Expect(repoClient.Close()).Should(BeNil())
 			Expect(ossFuzzRepoClient.Close()).Should(BeNil())
 		})
@@ -119,10 +156,11 @@ var _ = Describe("E2E TEST:"+checks.CheckFuzzing, func() {
 			repo, err := githubrepo.MakeGithubRepo("ossf-tests/scorecard-check-fuzzing-golang")
 			Expect(err).Should(BeNil())
 			repoClient := githubrepo.CreateGithubRepoClient(context.Background(), logger)
-			err = repoClient.InitRepo(repo, clients.HeadSHA)
+			err = repoClient.InitRepo(repo, clients.HeadSHA, 0)
 			Expect(err).Should(BeNil())
-			ossFuzzRepoClient, err := githubrepo.CreateOssFuzzRepoClient(context.Background(), logger)
+			ossFuzzRepoClient, err := ossfuzz.CreateOSSFuzzClientEager(ossfuzz.StatusURL)
 			Expect(err).Should(BeNil())
+
 			req := checker.CheckRequest{
 				Ctx:         context.Background(),
 				RepoClient:  repoClient,
@@ -139,10 +177,11 @@ var _ = Describe("E2E TEST:"+checks.CheckFuzzing, func() {
 			repo, err := githubrepo.MakeGithubRepo("ossf-tests/scorecard-check-packaging-e2e")
 			Expect(err).Should(BeNil())
 			repoClient := githubrepo.CreateGithubRepoClient(context.Background(), logger)
-			err = repoClient.InitRepo(repo, clients.HeadSHA)
+			err = repoClient.InitRepo(repo, clients.HeadSHA, 0)
 			Expect(err).Should(BeNil())
-			ossFuzzRepoClient, err := githubrepo.CreateOssFuzzRepoClient(context.Background(), logger)
+			ossFuzzRepoClient, err := ossfuzz.CreateOSSFuzzClientEager(ossfuzz.StatusURL)
 			Expect(err).Should(BeNil())
+
 			req := checker.CheckRequest{
 				Ctx:         context.Background(),
 				RepoClient:  repoClient,
@@ -153,12 +192,12 @@ var _ = Describe("E2E TEST:"+checks.CheckFuzzing, func() {
 			expected := scut.TestReturn{
 				Error:         nil,
 				Score:         checker.MinResultScore,
-				NumberOfWarn:  0,
+				NumberOfWarn:  1,
 				NumberOfInfo:  0,
 				NumberOfDebug: 0,
 			}
 			result := checks.Fuzzing(&req)
-			Expect(scut.ValidateTestReturn(nil, "no fuzzing", &expected, &result, &dl)).Should(BeTrue())
+			scut.ValidateTestReturn(GinkgoTB(), "no fuzzing", &expected, &result, &dl)
 			Expect(repoClient.Close()).Should(BeNil())
 			Expect(ossFuzzRepoClient.Close()).Should(BeNil())
 		})

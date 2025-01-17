@@ -1,4 +1,4 @@
-// Copyright 2020 Security Scorecard Authors
+// Copyright 2020 OpenSSF Scorecard Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,12 +18,12 @@ import (
 	"os"
 	"sort"
 
-	docs "github.com/ossf/scorecard/v4/docs/checks"
+	docs "github.com/ossf/scorecard/v5/docs/checks"
 )
 
 func main() {
 	if len(os.Args) != 2 {
-		//nolint: goerr113
+		//nolint:goerr113
 		panic(fmt.Errorf("usage: %s filename", os.Args[0]))
 	}
 	yamlFile := os.Args[1]

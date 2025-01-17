@@ -1,4 +1,4 @@
-# Copyright 2021 Security Scorecard Authors
+# Copyright 2021 OpenSSF Scorecard Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@ kind: Deployment
 metadata:
   name: scorecard-batch-worker
 spec:
-  replicas: 12
+  replicas: 14
   selector:
     matchLabels:
       app.kubernetes.io/name: worker
@@ -32,23 +32,37 @@ spec:
           args: ["--ignoreRuntimeErrors=true", "--config=/etc/scorecard/config.yaml"]
           imagePullPolicy: Always
           env:
-            - name: GITHUB_AUTH_SERVER
-              value: "10.4.4.210:80"
-          resources:
-            requests:
-              memory: 5Gi
-              ephemeral-storage: 100Gi
-            limits:
-              memory: 12Gi
-              ephemeral-storage: 500Gi
+            - name: GITHUB_APP_KEY_PATH
+              value: /etc/github/app_key
+            - name: GITHUB_APP_ID
+              valueFrom:
+                secretKeyRef:
+                  name: github
+                  key: app_id
+            - name: GITHUB_APP_INSTALLATION_ID
+              valueFrom:
+                secretKeyRef:
+                  name: github
+                  key: installation_id
+            - name: GITLAB_AUTH_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: gitlab
+                  key: auth_token
           volumeMounts:
             - name: config-volume
               mountPath: /etc/scorecard
+              readOnly: true
+            - name: github-app-key
+              mountPath: "/etc/github/"
               readOnly: true
       volumes:
         - name: config-volume
           configMap:
             name: scorecard-config
+        - name: github-app-key
+          secret:
+            secretName: github
   strategy:
     type: "RollingUpdate"
     rollingUpdate:

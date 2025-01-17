@@ -1,4 +1,4 @@
-// Copyright 2020 Security Scorecard Authors
+// Copyright 2020 OpenSSF Scorecard Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,14 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package main of OSSF Scoreard.
+// Package main of OSSF Scorecard.
 package main
 
 import (
 	"log"
 
-	"github.com/ossf/scorecard/v4/cmd"
-	"github.com/ossf/scorecard/v4/options"
+	"github.com/ossf/scorecard/v5/cmd"
+	"github.com/ossf/scorecard/v5/options"
 )
 
 func main() {

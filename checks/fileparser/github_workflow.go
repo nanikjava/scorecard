@@ -1,4 +1,4 @@
-// Copyright 2021 Security Scorecard Authors
+// Copyright 2021 OpenSSF Scorecard Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -23,8 +23,9 @@ import (
 
 	"github.com/rhysd/actionlint"
 
-	"github.com/ossf/scorecard/v4/checker"
-	sce "github.com/ossf/scorecard/v4/errors"
+	"github.com/ossf/scorecard/v5/checker"
+	sce "github.com/ossf/scorecard/v5/errors"
+	"github.com/ossf/scorecard/v5/finding"
 )
 
 const (
@@ -130,6 +131,11 @@ func getJobDefaultRunShell(job *actionlint.Job) string {
 
 func getJobRunsOnLabels(job *actionlint.Job) []*actionlint.String {
 	if job != nil && job.RunsOn != nil {
+		// Starting at v1.6.16, either field may be set
+		// https://github.com/rhysd/actionlint/issues/164
+		if job.RunsOn.LabelsExpr != nil {
+			return []*actionlint.String{job.RunsOn.LabelsExpr}
+		}
 		return job.RunsOn.Labels
 	}
 	return nil
@@ -202,8 +208,15 @@ func GetOSesForJob(job *actionlint.Job) ([]string, error) {
 	}
 
 	if len(jobOSes) == 0 {
-		return jobOSes, sce.WithMessage(sce.ErrScorecardInternal,
-			fmt.Sprintf("unable to determine OS for job: %v", GetJobName(job)))
+		// This error is caught by the caller, which is responsible for adding more
+		// precise location information
+		jobName := GetJobName(job)
+		return jobOSes, &checker.ElementError{
+			Location: finding.Location{
+				Snippet: &jobName,
+			},
+			Err: sce.ErrJobOSParsing,
+		}
 	}
 	return jobOSes, nil
 }
@@ -234,7 +247,7 @@ func GetShellForStep(step *actionlint.Step, job *actionlint.Job) (string, error)
 	}
 	execRunShell := getExecRunShell(execRun)
 	if execRunShell != "" {
-		return execRun.Shell.Value, nil
+		return execRunShell, nil
 	}
 	jobDefaultRunShell := getJobDefaultRunShell(job)
 	if jobDefaultRunShell != "" {
@@ -330,7 +343,7 @@ type JobMatcherStep struct {
 	Run string
 }
 
-// JobMatchResult represents the result of a matche.
+// JobMatchResult represents the result of a match.
 type JobMatchResult struct {
 	Msg  string
 	File checker.File
@@ -349,7 +362,7 @@ func AnyJobsMatch(workflow *actionlint.Workflow, jobMatchers []JobMatcher, fp st
 			return JobMatchResult{
 				File: checker.File{
 					Path:   fp,
-					Type:   checker.FileTypeSource,
+					Type:   finding.FileTypeSource,
 					Offset: GetLineNumber(job.Pos),
 				},
 				Msg: fmt.Sprintf("%v: %v", matcher.LogText, fp),
@@ -360,7 +373,7 @@ func AnyJobsMatch(workflow *actionlint.Workflow, jobMatchers []JobMatcher, fp st
 	return JobMatchResult{
 		File: checker.File{
 			Path:   fp,
-			Type:   checker.FileTypeSource,
+			Type:   finding.FileTypeSource,
 			Offset: checker.OffsetDefault,
 		},
 		Msg: fmt.Sprintf("%v: %v", logMsgNoMatch, fp),
@@ -476,6 +489,15 @@ func IsPackagingWorkflow(workflow *actionlint.Workflow, fp string) (JobMatchResu
 			LogText: "candidate java publishing workflow using gradle",
 		},
 		{
+			// Scala packages with sbt-ci-release
+			Steps: []*JobMatcherStep{
+				{
+					Run: "sbt.*ci-release",
+				},
+			},
+			LogText: "candidate Scala publishing workflow using sbt-ci-release",
+		},
+		{
 			// Ruby packages.
 			Steps: []*JobMatcherStep{
 				{
@@ -558,8 +580,20 @@ func IsPackagingWorkflow(workflow *actionlint.Workflow, fp string) (JobMatchResu
 				{
 					Uses: "imjasonh/setup-ko",
 				},
+				{
+					Uses: "ko-build/setup-ko",
+				},
 			},
 			LogText: "candidate container publishing workflow using ko",
+		},
+		{
+			// Commonly JavaScript packages, but supports multiple ecosystems
+			Steps: []*JobMatcherStep{
+				{
+					Run: "npx.*semantic-release",
+				},
+			},
+			LogText: "candidate publishing workflow using semantic-release",
 		},
 	}
 

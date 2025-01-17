@@ -1,4 +1,4 @@
-// Copyright 2021 Security Scorecard Authors
+// Copyright 2021 OpenSSF Scorecard Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,10 +15,12 @@
 package checks
 
 import (
-	"github.com/ossf/scorecard/v4/checker"
-	"github.com/ossf/scorecard/v4/checks/evaluation"
-	"github.com/ossf/scorecard/v4/checks/raw"
-	sce "github.com/ossf/scorecard/v4/errors"
+	"github.com/ossf/scorecard/v5/checker"
+	"github.com/ossf/scorecard/v5/checks/evaluation"
+	"github.com/ossf/scorecard/v5/checks/raw"
+	sce "github.com/ossf/scorecard/v5/errors"
+	"github.com/ossf/scorecard/v5/probes"
+	"github.com/ossf/scorecard/v5/probes/zrunner"
 )
 
 // CheckTokenPermissions is the exported name for Token-Permissions check.
@@ -27,8 +29,8 @@ const CheckTokenPermissions = "Token-Permissions"
 //nolint:gochecknoinits
 func init() {
 	supportedRequestTypes := []checker.RequestType{
-		checker.FileBased,
 		checker.CommitBased,
+		checker.FileBased,
 	}
 	if err := registerCheck(CheckTokenPermissions, TokenPermissions, supportedRequestTypes); err != nil {
 		// This should never happen.
@@ -44,11 +46,19 @@ func TokenPermissions(c *checker.CheckRequest) checker.CheckResult {
 		return checker.CreateRuntimeErrorResult(CheckTokenPermissions, e)
 	}
 
-	// Return raw results.
-	if c.RawResults != nil {
-		c.RawResults.TokenPermissionsResults = rawData
+	// Set the raw results.
+	pRawResults := getRawResults(c)
+	pRawResults.TokenPermissionsResults = rawData
+
+	// Evaluate the probes.
+	findings, err := zrunner.Run(pRawResults, probes.TokenPermissions)
+	if err != nil {
+		e := sce.WithMessage(sce.ErrScorecardInternal, err.Error())
+		return checker.CreateRuntimeErrorResult(CheckTokenPermissions, e)
 	}
 
 	// Return the score evaluation.
-	return evaluation.TokenPermissions(CheckTokenPermissions, c, &rawData)
+	ret := evaluation.TokenPermissions(CheckTokenPermissions, findings, c.Dlogger)
+	ret.Findings = findings
+	return ret
 }

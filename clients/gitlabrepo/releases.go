@@ -1,4 +1,4 @@
-// Copyright 2022 Security Scorecard Authors
+// Copyright 2022 OpenSSF Scorecard Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,20 +19,20 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/xanzy/go-gitlab"
+	gitlab "gitlab.com/gitlab-org/api/client-go"
 
-	"github.com/ossf/scorecard/v4/clients"
+	"github.com/ossf/scorecard/v5/clients"
 )
 
 type releasesHandler struct {
 	glClient *gitlab.Client
 	once     *sync.Once
 	errSetup error
-	repourl  *repoURL
+	repourl  *Repo
 	releases []clients.Release
 }
 
-func (handler *releasesHandler) init(repourl *repoURL) {
+func (handler *releasesHandler) init(repourl *Repo) {
 	handler.repourl = repourl
 	handler.errSetup = nil
 	handler.once = new(sync.Once)
@@ -70,9 +70,12 @@ func releasesFrom(data []*gitlab.Release) []clients.Release {
 	for _, r := range data {
 		release := clients.Release{
 			TagName:         r.TagName,
-			URL:             r.Assets.Links[0].DirectAssetURL,
 			TargetCommitish: r.CommitPath,
 		}
+		if len(r.Assets.Links) > 0 {
+			release.URL = r.Assets.Links[0].DirectAssetURL
+		}
+
 		for _, a := range r.Assets.Sources {
 			release.Assets = append(release.Assets, clients.ReleaseAsset{
 				Name: a.Format,

@@ -1,4 +1,4 @@
-// Copyright 2021 Security Scorecard Authors
+// Copyright 2021 OpenSSF Scorecard Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,11 +20,13 @@
 package mockrepo
 
 import (
+	context "context"
+	io "io"
 	reflect "reflect"
 	time "time"
 
 	gomock "github.com/golang/mock/gomock"
-	clients "github.com/ossf/scorecard/v4/clients"
+	clients "github.com/ossf/scorecard/v5/clients"
 )
 
 // MockRepoClient is a mock of RepoClient interface.
@@ -124,33 +126,48 @@ func (mr *MockRepoClientMockRecorder) GetDefaultBranchName() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetDefaultBranchName", reflect.TypeOf((*MockRepoClient)(nil).GetDefaultBranchName))
 }
 
-// GetFileContent mocks base method.
-func (m *MockRepoClient) GetFileContent(filename string) ([]byte, error) {
+// GetFileReader mocks base method.
+func (m *MockRepoClient) GetFileReader(filename string) (io.ReadCloser, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetFileContent", filename)
-	ret0, _ := ret[0].([]byte)
+	ret := m.ctrl.Call(m, "GetFileReader", filename)
+	ret0, _ := ret[0].(io.ReadCloser)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// GetFileContent indicates an expected call of GetFileContent.
-func (mr *MockRepoClientMockRecorder) GetFileContent(filename interface{}) *gomock.Call {
+// GetFileReader indicates an expected call of GetFileReader.
+func (mr *MockRepoClientMockRecorder) GetFileReader(filename interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetFileContent", reflect.TypeOf((*MockRepoClient)(nil).GetFileContent), filename)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetFileReader", reflect.TypeOf((*MockRepoClient)(nil).GetFileReader), filename)
+}
+
+// GetOrgRepoClient mocks base method.
+func (m *MockRepoClient) GetOrgRepoClient(arg0 context.Context) (clients.RepoClient, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetOrgRepoClient", arg0)
+	ret0, _ := ret[0].(clients.RepoClient)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetOrgRepoClient indicates an expected call of GetOrgRepoClient.
+func (mr *MockRepoClientMockRecorder) GetOrgRepoClient(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetOrgRepoClient", reflect.TypeOf((*MockRepoClient)(nil).GetOrgRepoClient), arg0)
 }
 
 // InitRepo mocks base method.
-func (m *MockRepoClient) InitRepo(repo clients.Repo, commitSHA string) error {
+func (m *MockRepoClient) InitRepo(repo clients.Repo, commitSHA string, commitDepth int) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "InitRepo", repo, commitSHA)
+	ret := m.ctrl.Call(m, "InitRepo", repo, commitSHA, commitDepth)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // InitRepo indicates an expected call of InitRepo.
-func (mr *MockRepoClientMockRecorder) InitRepo(repo, commitSHA interface{}) *gomock.Call {
+func (mr *MockRepoClientMockRecorder) InitRepo(repo, commitSHA, commitDepth interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InitRepo", reflect.TypeOf((*MockRepoClient)(nil).InitRepo), repo, commitSHA)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InitRepo", reflect.TypeOf((*MockRepoClient)(nil).InitRepo), repo, commitSHA, commitDepth)
 }
 
 // IsArchived mocks base method.
@@ -243,6 +260,21 @@ func (mr *MockRepoClientMockRecorder) ListIssues() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListIssues", reflect.TypeOf((*MockRepoClient)(nil).ListIssues))
 }
 
+// ListLicenses mocks base method.
+func (m *MockRepoClient) ListLicenses() ([]clients.License, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ListLicenses")
+	ret0, _ := ret[0].([]clients.License)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ListLicenses indicates an expected call of ListLicenses.
+func (mr *MockRepoClientMockRecorder) ListLicenses() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListLicenses", reflect.TypeOf((*MockRepoClient)(nil).ListLicenses))
+}
+
 // ListProgrammingLanguages mocks base method.
 func (m *MockRepoClient) ListProgrammingLanguages() ([]clients.Language, error) {
 	m.ctrl.T.Helper()
@@ -316,6 +348,21 @@ func (m *MockRepoClient) ListWebhooks() ([]clients.Webhook, error) {
 func (mr *MockRepoClientMockRecorder) ListWebhooks() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListWebhooks", reflect.TypeOf((*MockRepoClient)(nil).ListWebhooks))
+}
+
+// LocalPath mocks base method.
+func (m *MockRepoClient) LocalPath() (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "LocalPath")
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// LocalPath indicates an expected call of LocalPath.
+func (mr *MockRepoClientMockRecorder) LocalPath() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LocalPath", reflect.TypeOf((*MockRepoClient)(nil).LocalPath))
 }
 
 // Search mocks base method.

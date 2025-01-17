@@ -1,4 +1,4 @@
-// Copyright 2021 Security Scorecard Authors
+// Copyright 2021 OpenSSF Scorecard Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -22,33 +22,32 @@ import (
 	"os"
 	"path"
 
-	clients "github.com/ossf/scorecard/v4/clients"
+	clients "github.com/ossf/scorecard/v5/clients"
 )
 
 var errNotDirectory = errors.New("not a directory")
 
-type repoLocal struct {
+type Repo struct {
 	path     string
 	metadata []string
 }
 
 // URI implements Repo.URI().
-func (r *repoLocal) URI() string {
+func (r *Repo) URI() string {
 	return fmt.Sprintf("file://%s", r.path)
 }
 
+func (r *Repo) Host() string {
+	return ""
+}
+
 // String implements Repo.String.
-func (r *repoLocal) String() string {
+func (r *Repo) String() string {
 	return r.URI()
 }
 
-// Org implements Repo.Org.
-func (r *repoLocal) Org() clients.Repo {
-	return nil
-}
-
 // IsValid implements Repo.IsValid.
-func (r *repoLocal) IsValid() error {
+func (r *Repo) IsValid() error {
 	f, err := os.Stat(r.path)
 	if err != nil {
 		return fmt.Errorf("%w", err)
@@ -61,19 +60,24 @@ func (r *repoLocal) IsValid() error {
 }
 
 // Metadata implements Repo.Metadata.
-func (r *repoLocal) Metadata() []string {
+func (r *Repo) Metadata() []string {
 	return []string{}
 }
 
 // AppendMetadata implements Repo.AppendMetadata.
-func (r *repoLocal) AppendMetadata(m ...string) {
+func (r *Repo) AppendMetadata(m ...string) {
 	r.metadata = append(r.metadata, m...)
+}
+
+// Path() implements RepoClient.Path.
+func (r *Repo) Path() string {
+	return r.path
 }
 
 // MakeLocalDirRepo returns an implementation of clients.Repo interface.
 func MakeLocalDirRepo(pathfn string) (clients.Repo, error) {
 	p := path.Clean(pathfn)
-	repo := &repoLocal{
+	repo := &Repo{
 		path: p,
 	}
 

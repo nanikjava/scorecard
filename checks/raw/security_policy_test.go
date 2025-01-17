@@ -1,4 +1,4 @@
-// Copyright 2022 Security Scorecard Authors
+// Copyright 2022 OpenSSF Scorecard Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,13 +15,16 @@
 package raw
 
 import (
+	"io"
+	"os"
+	"strings"
 	"testing"
 
 	"github.com/golang/mock/gomock"
 
-	"github.com/ossf/scorecard/v4/checker"
-	mockrepo "github.com/ossf/scorecard/v4/clients/mockclients"
-	scut "github.com/ossf/scorecard/v4/utests"
+	"github.com/ossf/scorecard/v5/checker"
+	mockrepo "github.com/ossf/scorecard/v5/clients/mockclients"
+	scut "github.com/ossf/scorecard/v5/utests"
 )
 
 func Test_isSecurityPolicyFilename(t *testing.T) {
@@ -61,10 +64,11 @@ func Test_isSecurityPolicyFilename(t *testing.T) {
 // TestSecurityPolicy tests the security policy.
 func TestSecurityPolicy(t *testing.T) {
 	t.Parallel()
-	//nolint
+	//nolint:govet
 	tests := []struct {
 		name    string
 		files   []string
+		path    string
 		result  checker.SecurityPolicyData
 		wantErr bool
 		want    scut.TestReturn
@@ -74,30 +78,56 @@ func TestSecurityPolicy(t *testing.T) {
 			files: []string{
 				"security.md",
 			},
+			path: "",
 		},
 		{
 			name: ".github/security.md",
 			files: []string{
 				".github/security.md",
 			},
+			path: "",
 		},
 		{
 			name: "docs/security.md",
 			files: []string{
 				"docs/security.md",
 			},
+			path: "",
+		},
+		{
+			name: "security.markdown",
+			files: []string{
+				"security.markdown",
+			},
+			path: "",
+		},
+		{
+			name: ".github/security.markdown",
+			files: []string{
+				".github/security.markdown",
+			},
+			path: "",
+		},
+		{
+			name: "docs/security.markdown",
+			files: []string{
+				"docs/security.markdown",
+			},
+			path: "",
 		},
 		{
 			name: "docs/security.rst",
 			files: []string{
 				"docs/security.rst",
 			},
+			path: "",
 		},
 		{
 			name: "doc/security.rst",
 			files: []string{
 				"doc/security.rst",
 			},
+			path: "",
 		},
 	}
 	for _, tt := range tests {
@@ -109,7 +139,20 @@ func TestSecurityPolicy(t *testing.T) {
 			mockRepo := mockrepo.NewMockRepo(ctrl)
 
 			mockRepoClient.EXPECT().ListFiles(gomock.Any()).Return(tt.files, nil).AnyTimes()
-			mockRepo.EXPECT().Org().Return(nil).AnyTimes()
+			// the revised Security Policy will immediate go for the
+			// file contents once found. This test will return that
+			// mock file, but this specific unit test is not testing
+			// for content. As such, this test will crash without
+			// a mock GetFileReader, so this will return no content
+			// for the existing file. content test are in overall check
+			//
+			mockRepoClient.EXPECT().GetFileReader(gomock.Any()).DoAndReturn(func(fn string) (io.ReadCloser, error) {
+				if tt.path == "" {
+					return io.NopCloser(strings.NewReader("")), nil
+				}
+				return os.Open(tt.path)
+			}).AnyTimes()
+
 			dl := scut.TestDetailLogger{}
 			c := checker.CheckRequest{
 				RepoClient: mockRepoClient,
@@ -119,17 +162,15 @@ func TestSecurityPolicy(t *testing.T) {
 
 			res, err := SecurityPolicy(&c)
 
-			if !scut.ValidateTestReturn(t, tt.name, &tt.want, &checker.CheckResult{}, &dl) {
-				t.Errorf("test failed: log message not present: %+v , for test %v", tt.want, tt.name)
-			}
+			scut.ValidateTestReturn(t, tt.name, &tt.want, &checker.CheckResult{}, &dl)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("SecurityPolicy() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 
-			if len(res.Files) != len(tt.files) {
-				t.Errorf("test failed: number of files returned is not correct: %+v", res)
+			if (res.PolicyFiles[0].File.Path) != (tt.files[0]) {
+				t.Errorf("test failed: the file returned is not correct: %+v", res)
 			}
 		})
 	}

@@ -1,4 +1,4 @@
-// Copyright 2020 Security Scorecard Authors
+// Copyright 2020 OpenSSF Scorecard Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -23,12 +23,11 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/ossf/scorecard/v4/checks"
-	"github.com/ossf/scorecard/v4/clients"
-	"github.com/ossf/scorecard/v4/clients/githubrepo"
-	"github.com/ossf/scorecard/v4/log"
-	"github.com/ossf/scorecard/v4/options"
-	"github.com/ossf/scorecard/v4/pkg"
+	"github.com/ossf/scorecard/v5/clients/githubrepo"
+	"github.com/ossf/scorecard/v5/clients/ossfuzz"
+	"github.com/ossf/scorecard/v5/log"
+	"github.com/ossf/scorecard/v5/options"
+	"github.com/ossf/scorecard/v5/pkg/scorecard"
 )
 
 // TODO(cmd): Determine if this should be exported.
@@ -60,18 +59,17 @@ func serveCmd(o *options.Options) *cobra.Command {
 				}
 				ctx := r.Context()
 				repoClient := githubrepo.CreateGithubRepoClient(ctx, logger)
-				ossFuzzRepoClient, err := githubrepo.CreateOssFuzzRepoClient(ctx, logger)
-				vulnsClient := clients.DefaultVulnerabilitiesClient()
+				ossFuzzRepoClient, err := ossfuzz.CreateOSSFuzzClientEager(ossfuzz.StatusURL)
 				if err != nil {
 					logger.Error(err, "initializing clients")
 					rw.WriteHeader(http.StatusInternalServerError)
 				}
 				defer ossFuzzRepoClient.Close()
-				ciiClient := clients.DefaultCIIBestPracticesClient()
-				checksToRun := checks.GetAll()
-				repoResult, err := pkg.RunScorecards(
-					ctx, repo, clients.HeadSHA /*commitSHA*/, checksToRun, repoClient,
-					ossFuzzRepoClient, ciiClient, vulnsClient)
+				repoResult, err := scorecard.Run(ctx, repo,
+					scorecard.WithCommitDepth(o.CommitDepth),
+					scorecard.WithRepoClient(repoClient),
+					scorecard.WithOSSFuzzClient(ossFuzzRepoClient),
+				)
 				if err != nil {
 					logger.Error(err, "running enabled scorecard checks on repo")
 					rw.WriteHeader(http.StatusInternalServerError)
@@ -94,8 +92,8 @@ func serveCmd(o *options.Options) *cobra.Command {
 			if port == "" {
 				port = "8080"
 			}
-			fmt.Printf("Listening on localhost:%s\n", port)
-			//nolint: gosec // unsused.
+			logger.Info("Listening on localhost:" + port + "\n")
+			//nolint:gosec // unused.
 			err = http.ListenAndServe(fmt.Sprintf("0.0.0.0:%s", port), nil)
 			if err != nil {
 				// TODO(log): Should this actually panic?

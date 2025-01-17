@@ -1,4 +1,4 @@
-// Copyright 2021 Security Scorecard Authors
+// Copyright 2021 OpenSSF Scorecard Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,62 +15,100 @@
 package clients
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
-	"net/http"
+	"errors"
+	"fmt"
+	"os"
+	"runtime/debug"
 
-	"github.com/ossf/scorecard/v4/errors"
+	"github.com/google/osv-scanner/pkg/osvscanner"
+
+	sce "github.com/ossf/scorecard/v5/errors"
 )
 
 var _ VulnerabilitiesClient = osvClient{}
 
-type osvClient struct{}
-
-const osvQueryEndpoint = "https://api.osv.dev/v1/query"
-
-type osvQuery struct {
-	Commit string `json:"commit"`
+type osvClient struct {
+	local bool
 }
 
-type osvResp struct {
-	Vulns []struct {
-		ID string `json:"id"`
-	} `json:"vulns"`
+// ListUnfixedVulnerabilities implements VulnerabilityClient.ListUnfixedVulnerabilities.
+func (v osvClient) ListUnfixedVulnerabilities(
+	ctx context.Context,
+	commit,
+	localPath string,
+) (_ VulnerabilitiesResponse, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = sce.CreateInternal(sce.ErrScorecardInternal, fmt.Sprintf("osv-scanner panic: %v", r))
+			fmt.Fprintf(os.Stderr, "osv-scanner panic: %v\n%s\n", r, string(debug.Stack()))
+		}
+	}()
+	directoryPaths := []string{}
+	if localPath != "" {
+		directoryPaths = append(directoryPaths, localPath)
+	}
+	gitCommits := []string{}
+	if commit != "" {
+		gitCommits = append(gitCommits, commit)
+	}
+	res, err := osvscanner.DoScan(osvscanner.ScannerActions{
+		DirectoryPaths: directoryPaths,
+		SkipGit:        true,
+		Recursive:      true,
+		GitCommits:     gitCommits,
+		ExperimentalScannerActions: osvscanner.ExperimentalScannerActions{
+			CompareOffline:    v.local,
+			DownloadDatabases: v.local,
+		},
+	}, nil) // TODO: Do logging?
+
+	response := VulnerabilitiesResponse{}
+
+	// either no vulns found, or no packages detected by osvscanner, which likely means no vulns
+	// while there could still be vulns, not detecting any packages shouldn't be a runtime error.
+	if err == nil || errors.Is(err, osvscanner.NoPackagesFoundErr) {
+		return response, nil
+	}
+
+	// If vulnerabilities are found, err will be set to osvscanner.VulnerabilitiesFoundErr
+	if errors.Is(err, osvscanner.VulnerabilitiesFoundErr) {
+		vulns := res.Flatten()
+		for i := range vulns {
+			// ignore Go stdlib vulns. The go directive from the go.mod isn't a perfect metric
+			// of which version of Go will be used to build a project.
+			if vulns[i].Package.Ecosystem == "Go" && vulns[i].Package.Name == "stdlib" {
+				continue
+			}
+			response.Vulnerabilities = append(response.Vulnerabilities, Vulnerability{
+				ID:      vulns[i].Vulnerability.ID,
+				Aliases: vulns[i].Vulnerability.Aliases,
+			})
+			// Remove duplicate vulnerability IDs for now as we don't report information
+			// on the source of each vulnerability yet, therefore having multiple identical
+			// vuln IDs might be confusing.
+			response.Vulnerabilities = removeDuplicate(
+				response.Vulnerabilities,
+				func(key Vulnerability) string { return key.ID },
+			)
+		}
+
+		return response, nil
+	}
+
+	return VulnerabilitiesResponse{}, fmt.Errorf("osvscanner.DoScan: %w", err)
 }
 
-// HasUnfixedVulnerabilities implements VulnerabilityClient.HasUnfixedVulnerabilities.
-func (v osvClient) HasUnfixedVulnerabilities(ctx context.Context, commit string) (VulnerabilitiesResponse, error) {
-	query, err := json.Marshal(&osvQuery{
-		Commit: commit,
-	})
-	if err != nil {
-		return VulnerabilitiesResponse{}, errors.WithMessage(err, "failed to marshal query")
+// RemoveDuplicate removes duplicate entries from a slice.
+func removeDuplicate[T any, K comparable](sliceList []T, keyExtract func(T) K) []T {
+	allKeys := make(map[K]bool)
+	list := []T{}
+	for _, item := range sliceList {
+		key := keyExtract(item)
+		if _, value := allKeys[key]; !value {
+			allKeys[key] = true
+			list = append(list, item)
+		}
 	}
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, osvQueryEndpoint, bytes.NewReader(query))
-	if err != nil {
-		return VulnerabilitiesResponse{}, errors.WithMessage(err, "failed to create request")
-	}
-
-	httpClient := &http.Client{}
-	resp, err := httpClient.Do(req)
-	if err != nil {
-		return VulnerabilitiesResponse{}, errors.WithMessage(err, "failed to send request")
-	}
-	defer resp.Body.Close()
-
-	var osvresp osvResp
-	decoder := json.NewDecoder(resp.Body)
-	if err := decoder.Decode(&osvresp); err != nil {
-		return VulnerabilitiesResponse{}, errors.WithMessage(err, "failed to decode response")
-	}
-
-	var ret VulnerabilitiesResponse
-	for _, vuln := range osvresp.Vulns {
-		ret.Vulnerabilities = append(ret.Vulnerabilities, Vulnerability{
-			ID: vuln.ID,
-		})
-	}
-	return ret, nil
+	return list
 }

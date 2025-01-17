@@ -1,4 +1,4 @@
-// Copyright 2022 Security Scorecard Authors
+// Copyright 2022 OpenSSF Scorecard Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,10 +20,10 @@ import (
 	"flag"
 	"fmt"
 
-	"github.com/ossf/scorecard/v4/cron/config"
-	"github.com/ossf/scorecard/v4/cron/data"
-	"github.com/ossf/scorecard/v4/cron/internal/pubsub"
-	"github.com/ossf/scorecard/v4/log"
+	"github.com/ossf/scorecard/v5/cron/config"
+	"github.com/ossf/scorecard/v5/cron/data"
+	"github.com/ossf/scorecard/v5/cron/internal/pubsub"
+	"github.com/ossf/scorecard/v5/log"
 )
 
 // Worker is the interface used to process batch requests.
@@ -74,7 +74,7 @@ func (wl *WorkLoop) Run() error {
 		return fmt.Errorf("config.GetResultDataBucketURL: %w", err)
 	}
 
-	logger := log.NewLogger(log.InfoLevel)
+	logger := log.NewCronLogger(log.InfoLevel)
 
 	for {
 		req, err := subscriber.SynchronousPull()
@@ -151,7 +151,7 @@ func ResultFilename(sbr *data.ScorecardBatchRequest) string {
 }
 
 func hasMetadataFile(ctx context.Context, req *data.ScorecardBatchRequest, bucketURL string) (bool, error) {
-	filename := data.GetShardMetadataFilename(req.GetJobTime().AsTime())
+	filename := data.GetShardMetadataFilename(req.GetJobTime().AsTime().UTC())
 	exists, err := data.BlobExists(ctx, bucketURL, filename)
 	if err != nil {
 		return false, fmt.Errorf("data.BlobExists: %w", err)

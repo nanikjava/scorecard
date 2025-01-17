@@ -1,4 +1,4 @@
-// Copyright 2020 Security Scorecard Authors
+// Copyright 2020 OpenSSF Scorecard Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,8 +20,13 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/ossf/scorecard/v4/checker"
-	"github.com/ossf/scorecard/v4/clients"
+	"github.com/ossf/scorecard/v5/checker"
+	"github.com/ossf/scorecard/v5/clients"
+)
+
+var (
+	rePhabricatorRevID = regexp.MustCompile(`Differential Revision:[^\r\n]*(D\d+)`)
+	rePiperRevID       = regexp.MustCompile(`PiperOrigin-RevId:\s*(\d{3,})`)
 )
 
 // CodeReview retrieves the raw data for the Code-Review check.
@@ -34,10 +39,6 @@ func CodeReview(c clients.RepoClient) (checker.CodeReviewData, error) {
 
 	changesets := getChangesets(commits)
 
-	if err != nil {
-		return checker.CodeReviewData{}, fmt.Errorf("%w", err)
-	}
-
 	return checker.CodeReviewData{
 		DefaultBranchChangesets: changesets,
 	}, nil
@@ -49,6 +50,20 @@ func getGithubRevisionID(c *clients.Commit) string {
 		return strconv.Itoa(mr.Number)
 	}
 	return ""
+}
+
+func getGithubReviews(c *clients.Commit) (reviews []clients.Review) {
+	reviews = []clients.Review{}
+	reviews = append(reviews, c.AssociatedMergeRequest.Reviews...)
+
+	if !c.AssociatedMergeRequest.MergedAt.IsZero() {
+		reviews = append(reviews, clients.Review{Author: &c.AssociatedMergeRequest.MergedBy, State: "APPROVED"})
+	}
+	return
+}
+
+func getGithubAuthor(c *clients.Commit) (author clients.User) {
+	return c.AssociatedMergeRequest.Author
 }
 
 func getProwRevisionID(c *clients.Commit) string {
@@ -76,12 +91,8 @@ func getGerritRevisionID(c *clients.Commit) string {
 // Given m, a commit message, find the Phabricator revision ID in it.
 func getPhabricatorRevisionID(c *clients.Commit) string {
 	m := c.Message
-	p, err := regexp.Compile(`Differential Revision:\s*(\w+)`)
-	if err != nil {
-		return ""
-	}
 
-	match := p.FindStringSubmatch(m)
+	match := rePhabricatorRevID.FindStringSubmatch(m)
 	if match == nil || len(match) < 2 {
 		return ""
 	}
@@ -92,12 +103,8 @@ func getPhabricatorRevisionID(c *clients.Commit) string {
 // Given m, a commit message, find the piper revision ID in it.
 func getPiperRevisionID(c *clients.Commit) string {
 	m := c.Message
-	matchPiperRevID, err := regexp.Compile(`PiperOrigin-RevId:\s*(\d{3,})`)
-	if err != nil {
-		return ""
-	}
 
-	match := matchPiperRevID.FindStringSubmatch(m)
+	match := rePiperRevID.FindStringSubmatch(m)
 	if match == nil || len(match) < 2 {
 		return ""
 	}
@@ -127,7 +134,7 @@ func detectCommitRevisionInfo(c *clients.Commit) revisionInfo {
 		return revisionInfo{checker.ReviewPlatformPiper, revisionID}
 	}
 
-	return revisionInfo{}
+	return revisionInfo{checker.ReviewPlatformUnknown, ""}
 }
 
 // Group commits by the changeset they belong to
@@ -143,12 +150,20 @@ func getChangesets(commits []clients.Commit) []checker.Changeset {
 
 	for i := range commits {
 		rev := detectCommitRevisionInfo(&commits[i])
+		if rev.ID == "" {
+			rev.ID = commits[i].SHA
+		}
 
 		if changeset, ok := changesetsByRevInfo[rev]; !ok {
 			newChangeset := checker.Changeset{
 				ReviewPlatform: rev.Platform,
 				RevisionID:     rev.ID,
 				Commits:        []clients.Commit{commits[i]},
+			}
+
+			if rev.Platform == checker.ReviewPlatformGitHub {
+				newChangeset.Reviews = getGithubReviews(&commits[i])
+				newChangeset.Author = getGithubAuthor(&commits[i])
 			}
 
 			changesetsByRevInfo[rev] = newChangeset
@@ -160,19 +175,8 @@ func getChangesets(commits []clients.Commit) []checker.Changeset {
 	}
 
 	// Changesets are returned in map order (i.e. randomized)
-	for ri, cs := range changesetsByRevInfo {
-		// Ungroup all commits that don't have revision info
-		missing := revisionInfo{}
-		if ri == missing {
-			for i := range cs.Commits {
-				c := cs.Commits[i]
-				changesets = append(changesets, checker.Changeset{
-					Commits: []clients.Commit{c},
-				})
-			}
-		} else {
-			changesets = append(changesets, cs)
-		}
+	for ri := range changesetsByRevInfo {
+		changesets = append(changesets, changesetsByRevInfo[ri])
 	}
 
 	return changesets

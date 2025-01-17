@@ -1,4 +1,4 @@
-// Copyright 2021 Security Scorecard Authors
+// Copyright 2021 OpenSSF Scorecard Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,9 +20,9 @@ import (
 	"path"
 	"sync"
 
-	"github.com/google/go-github/v38/github"
+	"github.com/google/go-github/v53/github"
 
-	"github.com/ossf/scorecard/v4/clients"
+	"github.com/ossf/scorecard/v5/clients"
 )
 
 type languagesHandler struct {
@@ -30,15 +30,16 @@ type languagesHandler struct {
 	once      *sync.Once
 	ctx       context.Context
 	errSetup  error
-	repourl   *repoURL
+	repourl   *Repo
 	languages []clients.Language
 }
 
-func (handler *languagesHandler) init(ctx context.Context, repourl *repoURL) {
+func (handler *languagesHandler) init(ctx context.Context, repourl *Repo) {
 	handler.ctx = ctx
 	handler.repourl = repourl
 	handler.errSetup = nil
 	handler.once = new(sync.Once)
+	handler.languages = nil
 }
 
 // TODO: Can add support to parse the raw response JSON and mark languages that are not in

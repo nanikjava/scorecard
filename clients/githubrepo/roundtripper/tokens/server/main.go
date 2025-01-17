@@ -1,4 +1,4 @@
-// Copyright 2021 Security Scorecard Authors
+// Copyright 2021 OpenSSF Scorecard Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,7 +20,7 @@ import (
 	"net/http"
 	"net/rpc"
 
-	"github.com/ossf/scorecard/v4/clients/githubrepo/roundtripper/tokens"
+	"github.com/ossf/scorecard/v5/clients/githubrepo/roundtripper/tokens"
 )
 
 func main() {
@@ -36,13 +36,13 @@ func main() {
 	}
 	rpc.HandleHTTP()
 
-	//nolint: gosec // using `localhost:8080` for gosec102 causes connection refused errors.
+	//nolint:gosec // using `localhost:8080` for gosec102 causes connection refused errors.
 	l, err := net.Listen("tcp", ":8080")
 	if err != nil {
 		panic(err)
 	}
 
-	//nolint: gosec // internal server.
+	//nolint:gosec // internal server.
 	if err := http.Serve(l, nil); err != nil {
 		panic(err)
 	}

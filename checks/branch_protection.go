@@ -1,4 +1,4 @@
-// Copyright 2020 Security Scorecard Authors
+// Copyright 2020 OpenSSF Scorecard Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,10 +15,12 @@
 package checks
 
 import (
-	"github.com/ossf/scorecard/v4/checker"
-	"github.com/ossf/scorecard/v4/checks/evaluation"
-	"github.com/ossf/scorecard/v4/checks/raw"
-	sce "github.com/ossf/scorecard/v4/errors"
+	"github.com/ossf/scorecard/v5/checker"
+	"github.com/ossf/scorecard/v5/checks/evaluation"
+	"github.com/ossf/scorecard/v5/checks/raw"
+	sce "github.com/ossf/scorecard/v5/errors"
+	"github.com/ossf/scorecard/v5/probes"
+	"github.com/ossf/scorecard/v5/probes/zrunner"
 )
 
 // CheckBranchProtection is the exported name for Branch-Protected check.
@@ -34,17 +36,25 @@ func init() {
 
 // BranchProtection runs the Branch-Protection check.
 func BranchProtection(c *checker.CheckRequest) checker.CheckResult {
-	rawData, err := raw.BranchProtection(c.RepoClient)
+	rawData, err := raw.BranchProtection(c)
 	if err != nil {
 		e := sce.WithMessage(sce.ErrScorecardInternal, err.Error())
 		return checker.CreateRuntimeErrorResult(CheckBranchProtection, e)
 	}
 
-	// Return raw results.
-	if c.RawResults != nil {
-		c.RawResults.BranchProtectionResults = rawData
+	// Set the raw results.
+	pRawResults := getRawResults(c)
+	pRawResults.BranchProtectionResults = rawData
+
+	// Evaluate the probes.
+	findings, err := zrunner.Run(pRawResults, probes.BranchProtection)
+	if err != nil {
+		e := sce.WithMessage(sce.ErrScorecardInternal, err.Error())
+		return checker.CreateRuntimeErrorResult(CheckBranchProtection, e)
 	}
 
 	// Return the score evaluation.
-	return evaluation.BranchProtection(CheckBranchProtection, c.Dlogger, &rawData)
+	ret := evaluation.BranchProtection(CheckBranchProtection, findings, c.Dlogger)
+	ret.Findings = findings
+	return ret
 }

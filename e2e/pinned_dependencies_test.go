@@ -1,4 +1,4 @@
-// Copyright 2021 Security Scorecard Authors
+// Copyright 2021 OpenSSF Scorecard Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -21,12 +21,12 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"github.com/ossf/scorecard/v4/checker"
-	"github.com/ossf/scorecard/v4/checks"
-	"github.com/ossf/scorecard/v4/clients"
-	"github.com/ossf/scorecard/v4/clients/githubrepo"
-	"github.com/ossf/scorecard/v4/clients/localdir"
-	scut "github.com/ossf/scorecard/v4/utests"
+	"github.com/ossf/scorecard/v5/checker"
+	"github.com/ossf/scorecard/v5/checks"
+	"github.com/ossf/scorecard/v5/clients"
+	"github.com/ossf/scorecard/v5/clients/githubrepo"
+	"github.com/ossf/scorecard/v5/clients/localdir"
+	scut "github.com/ossf/scorecard/v5/utests"
 )
 
 // TODO: use dedicated repo that don't change.
@@ -38,7 +38,7 @@ var _ = Describe("E2E TEST:"+checks.CheckPinnedDependencies, func() {
 			repo, err := githubrepo.MakeGithubRepo("ossf-tests/scorecard-check-pinned-dependencies-e2e")
 			Expect(err).Should(BeNil())
 			repoClient := githubrepo.CreateGithubRepoClient(context.Background(), logger)
-			err = repoClient.InitRepo(repo, clients.HeadSHA)
+			err = repoClient.InitRepo(repo, clients.HeadSHA, 0)
 			Expect(err).Should(BeNil())
 
 			req := checker.CheckRequest{
@@ -51,11 +51,11 @@ var _ = Describe("E2E TEST:"+checks.CheckPinnedDependencies, func() {
 				Error:         nil,
 				Score:         2,
 				NumberOfWarn:  139,
-				NumberOfInfo:  1,
+				NumberOfInfo:  5,
 				NumberOfDebug: 0,
 			}
 			result := checks.PinningDependencies(&req)
-			Expect(scut.ValidateTestReturn(nil, "dependencies check", &expected, &result, &dl)).Should(BeTrue())
+			scut.ValidateTestReturn(GinkgoTB(), "dependencies check", &expected, &result, &dl)
 			Expect(repoClient.Close()).Should(BeNil())
 		})
 		It("Should return dependencies check at commit", func() {
@@ -63,7 +63,7 @@ var _ = Describe("E2E TEST:"+checks.CheckPinnedDependencies, func() {
 			repo, err := githubrepo.MakeGithubRepo("ossf-tests/scorecard-check-pinned-dependencies-e2e")
 			Expect(err).Should(BeNil())
 			repoClient := githubrepo.CreateGithubRepoClient(context.Background(), logger)
-			err = repoClient.InitRepo(repo, "c8bfd7cf04ea7af741e1d07af98fabfcc1b6ffb1")
+			err = repoClient.InitRepo(repo, "c8bfd7cf04ea7af741e1d07af98fabfcc1b6ffb1", 0)
 			Expect(err).Should(BeNil())
 
 			req := checker.CheckRequest{
@@ -76,11 +76,11 @@ var _ = Describe("E2E TEST:"+checks.CheckPinnedDependencies, func() {
 				Error:         nil,
 				Score:         2,
 				NumberOfWarn:  139,
-				NumberOfInfo:  1,
+				NumberOfInfo:  5,
 				NumberOfDebug: 0,
 			}
 			result := checks.PinningDependencies(&req)
-			Expect(scut.ValidateTestReturn(nil, "dependencies check", &expected, &result, &dl)).Should(BeTrue())
+			scut.ValidateTestReturn(GinkgoTB(), "dependencies check", &expected, &result, &dl)
 			Expect(repoClient.Close()).Should(BeNil())
 		})
 		It("Should return dependencies check for a local repoClient", func() {
@@ -99,7 +99,7 @@ var _ = Describe("E2E TEST:"+checks.CheckPinnedDependencies, func() {
 			Expect(err).Should(BeNil())
 
 			x := localdir.CreateLocalDirClient(context.Background(), logger)
-			err = x.InitRepo(repo, clients.HeadSHA)
+			err = x.InitRepo(repo, clients.HeadSHA, 0)
 			Expect(err).Should(BeNil())
 
 			req := checker.CheckRequest{
@@ -112,11 +112,11 @@ var _ = Describe("E2E TEST:"+checks.CheckPinnedDependencies, func() {
 				Error:         nil,
 				Score:         2,
 				NumberOfWarn:  139,
-				NumberOfInfo:  1,
+				NumberOfInfo:  5,
 				NumberOfDebug: 0,
 			}
 			result := checks.PinningDependencies(&req)
-			Expect(scut.ValidateTestReturn(nil, "dependencies check", &expected, &result, &dl)).Should(BeTrue())
+			scut.ValidateTestReturn(GinkgoTB(), "dependencies check", &expected, &result, &dl)
 			Expect(x.Close()).Should(BeNil())
 		})
 	})

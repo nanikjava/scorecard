@@ -1,4 +1,4 @@
-// Copyright 2020 Security Scorecard Authors
+// Copyright 2020 OpenSSF Scorecard Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -26,7 +26,7 @@ var (
 		Name:        "CheckRuntime",
 		Description: "CPU runtime stats per check",
 		Measure:     CheckRuntimeInSec,
-		TagKeys:     []tag.Key{CheckName},
+		TagKeys:     []tag.Key{CheckName, RepoHost},
 		//nolint:gomnd
 		Aggregation: view.Distribution(
 			0,
@@ -51,7 +51,7 @@ var (
 		Name:        "CheckErrorCount",
 		Description: "Error count by type per check",
 		Measure:     CheckErrors,
-		TagKeys:     []tag.Key{CheckName, ErrorName},
+		TagKeys:     []tag.Key{CheckName, RepoHost, ErrorName},
 		Aggregation: view.Count(),
 	}
 
@@ -60,7 +60,7 @@ var (
 		Name:        "OutgoingHTTPRequests",
 		Description: "HTTPRequests made per check",
 		Measure:     HTTPRequests,
-		TagKeys:     []tag.Key{CheckName, RequestTag},
+		TagKeys:     []tag.Key{CheckName, RepoHost, RequestTag},
 		Aggregation: view.Count(),
 	}
 )

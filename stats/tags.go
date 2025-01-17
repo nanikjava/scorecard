@@ -1,4 +1,4 @@
-// Copyright 2020 Security Scorecard Authors
+// Copyright 2020 OpenSSF Scorecard Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -23,4 +23,6 @@ var (
 	ErrorName = tag.MustNewKey("errorName")
 	// RequestTag is the tag key for the request type.
 	RequestTag = tag.MustNewKey("requestTag")
+	// RepoHost is the tag key for the host of the repository being scanned.
+	RepoHost = tag.MustNewKey("repoHost")
 )

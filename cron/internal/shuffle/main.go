@@ -1,4 +1,4 @@
-// Copyright 2021 Security Scorecard Authors
+// Copyright 2021 OpenSSF Scorecard Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,9 +19,8 @@ import (
 	"math/rand"
 	"os"
 	"strconv"
-	"time"
 
-	"github.com/ossf/scorecard/v4/cron/data"
+	"github.com/ossf/scorecard/v5/cron/data"
 )
 
 func main() {
@@ -56,7 +55,6 @@ func main() {
 		repoURLs = append(repoURLs, repo)
 	}
 
-	rand.Seed(time.Now().UnixNano())
 	rand.Shuffle(len(repoURLs), func(i, j int) {
 		repoURLs[i], repoURLs[j] = repoURLs[j], repoURLs[i]
 	})

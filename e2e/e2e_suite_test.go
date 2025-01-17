@@ -1,4 +1,4 @@
-// Copyright 2021 Security Scorecard Authors
+// Copyright 2021 OpenSSF Scorecard Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -22,14 +22,14 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"github.com/ossf/scorecard/v4/log"
+	"github.com/ossf/scorecard/v5/log"
 )
 
+//nolint:paralleltest // avoiding parallel e2e tests due to rate limit concerns (#2527)
 func TestE2e(t *testing.T) {
 	if val, exists := os.LookupEnv("SKIP_GINKGO"); exists && val == "1" {
 		t.Skip()
 	}
-	t.Parallel()
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "E2e Suite")
 }
@@ -41,6 +41,7 @@ type tokenType int
 const (
 	patTokenType tokenType = iota
 	githubWorkflowDefaultTokenType
+	gitlabPATTokenType
 )
 
 var tokType tokenType
@@ -59,7 +60,9 @@ var _ = BeforeSuite(func() {
 		tokType = patTokenType
 	case "GITHUB_TOKEN":
 		tokType = githubWorkflowDefaultTokenType
+	case "GITLAB_PAT":
+		tokType = gitlabPATTokenType
 	default:
-		panic(fmt.Sprintf("invald TOKEN_TYPE: %s", tt))
+		panic(fmt.Sprintf("invalid TOKEN_TYPE: %s", tt))
 	}
 })
